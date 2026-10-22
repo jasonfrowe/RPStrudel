@@ -4,6 +4,15 @@ Live coding music in the style of [Strudel](https://strudel.cc/) for the
 [Picocomputer 6502](https://picocomputer.github.io/), played on its
 built-in OPL2. Written in C with [llvm-mos](https://llvm-mos.org/).
 
+<!-- rp6502
+preset: llvm-mos/Release
+publish: RPStrudel.zip
+frames: 300
+-->
+[![RPStrudel](https://jasonfrowe.github.io/RPStrudel/RPStrudel/screenshot.png)](https://jasonfrowe.github.io/RPStrudel/RPStrudel/)
+
+[Run it in your browser](https://jasonfrowe.github.io/RPStrudel/RPStrudel/).
+
 ## Status
 
 Milestone 3: a live coding editor. Edit the code, press Ctrl+Enter, and
