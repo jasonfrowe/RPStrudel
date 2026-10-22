@@ -405,6 +405,65 @@ static void undo(void)
     u_off = false;
 }
 
+/* ---- brackets and quotes ---- */
+
+/* The closer that goes with an opener, or 0. */
+static char closer(char c)
+{
+    switch (c) {
+    case '(':
+        return ')';
+    case '[':
+        return ']';
+    case '{':
+        return '}';
+    case '<':
+        return '>';
+    case '"':
+        return '"';
+    }
+    return 0;
+}
+
+static bool is_closer(char c)
+{
+    return c == ')' || c == ']' || c == '}' || c == '>' || c == '"';
+}
+
+static bool is_word(char c);
+
+/* A typed character, with its closer when it opens a pair, or stepping
+ * over the closer that is already there. */
+static void type_char(char c)
+{
+    uint16_t cur = edit_cursor();
+    char next = text_at(cur);
+    if (c == next && is_closer(c)) {
+        edit_set_cursor(cur + 1);
+        u_merge = false;
+        return;
+    }
+    char close = closer(c);
+    insert(c);
+    if (!close)
+        return;
+    /* only before nothing, a space, a closer or a comma */
+    if (next && next != '\n' && next != ' ' && next != ',' && !is_closer(next))
+        return;
+    if (c == '"') {
+        /* not when it ends a string: quotes before it on the line */
+        uint16_t ls = line_start(cur);
+        uint8_t quotes = 0;
+        for (uint16_t p = ls; p < cur; p++)
+            quotes += text_at(p) == '"';
+        if ((quotes & 1) || (cur > ls && is_word(text_at(cur - 1))))
+            return;
+    }
+    insert(close);
+    edit_set_cursor(cur + 1);
+    u_merge = false;
+}
+
 static void move_to(uint16_t pos, bool keep_col)
 {
     edit_set_cursor(pos);
@@ -591,6 +650,10 @@ void editor_key(uint8_t c, bool ctrl)
                 char gone = text_at(cur - 1);
                 edit_backspace();
                 removed(cur - 1, gone, true);
+                /* an empty pair goes together */
+                char next = text_at(cur - 1);
+                if (next && closer(gone) == next && edit_delete())
+                    removed(cur - 1, next, false);
             }
         }
         goto edited;
@@ -608,7 +671,7 @@ void editor_key(uint8_t c, bool ctrl)
         for (uint8_t i = 0; i < INDENT; i++)
             insert(' ');
     } else {
-        insert((char)c);
+        type_char((char)c);
     }
     u_join = false;
 edited:

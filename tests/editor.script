@@ -3,7 +3,7 @@
 #   ./tools/rp6502-emu build/llvm-mos/release/RPStrudel.rp6502 --mute --script tests/editor.script
 
 run 60
-# to the empty last line of the demo
+# to the empty last line of the starting text
 key down
 key down
 key down
@@ -111,13 +111,12 @@ release 0xE0
 run 120
 expect "STOPPED"
 
-# 6. Ctrl+K deletes lines: the demo's first four go, and it still plays
+# 6. Ctrl+K deletes lines: the starting text's three go, and it still plays
 # (first past the rest of the last screen dump, to its bottom row)
 expect "Ctrl+O open"
 key home
 key pageup
 key pageup
-key k+ctrl
 key k+ctrl
 key k+ctrl
 key k+ctrl
@@ -127,7 +126,7 @@ press 0x28
 run 3
 release 0x28
 release 0xE0
-run 200
+run 60
 press 0xE0
 press 0x07
 run 2

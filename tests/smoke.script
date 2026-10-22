@@ -1,13 +1,21 @@
-# Smoke test: the demo program plays through the pattern engine, keys the
+# Smoke test: a program plays through the pattern engine, keys the
 # OPL2 voices, Esc stops them and Ctrl+Enter starts them again. Run with:
 #   ./tools/rp6502-emu build/llvm-mos/release/RPStrudel.rp6502 --mute --script tests/smoke.script
 
 run 100
-# Voices go out in time order: 1 bd, 2 synth bass, 3 and 4 epiano, 5 hh,
-# 6 sd. Drums play at C3, as in RPTracker (block 3, F-number 345).
+key end+ctrl
+type "$: s(\"bd hh\")"
+press 0xE0
+press 0x28
+run 3
+release 0x28
+release 0xE0
+run 120
+# Voices go out in time order: 1 bd, 2 hh. Drums play at C3, as in
+# RPTracker (block 3, F-number 345).
 peek xram:0xB0 0x2D
 peek xram:0xA0 0x59
-peek xram:0xB4 0x2D
+peek xram:0xB1 0x2D
 # waveform select on
 peek xram:0x01 0x20
 
@@ -17,7 +25,7 @@ run 3
 release escape
 run 10
 peek xram:0xB0 0x0D
-peek xram:0xB4 0x0D
+peek xram:0xB1 0x0D
 
 # Ctrl+Enter starts again from cycle 0
 press 0xE0

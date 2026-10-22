@@ -22,16 +22,11 @@
 #include "text.h"
 #include "xram.h"
 
-static const char demo[] =
+static const char start_text[] =
     "// RPStrudel: Strudel patterns on the OPL2\n"
     "// Ctrl+Enter plays your changes, Ctrl+. stops\n"
     "setcpm(30)\n"
-    "\n"
-    "$: s(\"bd(3,8,<0 2>), [~ sd]*2\").every(4, x => x.ply(2))\n"
-    "$: s(\"hh*8?\").gain(\"[.5 1]*4\")\n"
-    "$: n(\"<0 3 5 [7 10]>*2\").scale(\"C2:minor\").s(\"gm_synth_bass_1\")\n"
-    "$: n(\"0 [2 4] <3 6> 7\").scale(\"C4:minor\").s(\"gm_epiano1\")\n"
-    "  .off(0.25, x => x.add(note(12))).gain(.6)\n";
+    "\n";
 
 /* Screen layout */
 #define TITLE_BG 24
@@ -485,7 +480,7 @@ int main(void)
     clock_init();
     memset(shown_patch, 0xFE, sizeof(shown_patch));
     draw_static();
-    editor_init(EDIT_X, EDIT_Y, EDIT_COLS, EDIT_ROWS, demo);
+    editor_init(EDIT_X, EDIT_Y, EDIT_COLS, EDIT_ROWS, start_text);
     editor_set_lit(hilite);
     files_init(EDIT_X, EDIT_Y, EDIT_COLS, EDIT_ROWS, STATUS_Y);
     evaluate();

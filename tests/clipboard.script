@@ -1,4 +1,5 @@
-# Selection, clipboard and undo: Shift+arrows, Ctrl+A/C/X/V/Z, Ctrl+End.
+# Selection, clipboard and undo: Shift+arrows, Ctrl+A/C/X/V/Z, Ctrl+End;
+# and brackets that close themselves.
 # Checks the text through Ctrl+D dumps. Run with:
 #   ./tools/rp6502-emu build/llvm-mos/release/RPStrudel.rp6502 --mute --script tests/clipboard.script
 run 60
@@ -122,3 +123,23 @@ release 0xE0
 run 120
 expect "RPStrudel:"
 expect "$: s(\"bd sd\") // abc"
+# 7. brackets and quotes close themselves, and typing the closer steps
+# over it, so typing a whole line gives just that line
+key end+ctrl
+key enter
+type "$: n(\"<0 [2 4]>\").s(\"sine\") // q"
+run 10
+key enter
+type "a("
+key backspace
+type "b"
+run 10
+press 0xE0
+press 0x07
+run 2
+release 0x07
+release 0xE0
+run 120
+expect "$: n(\"<0 [2 4]>\").s(\"sine\") // q"
+expect "ab"
+expect-not "ab)"

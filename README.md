@@ -206,6 +206,7 @@ again because the next one wasn't ready).
 | Ctrl+A | Select all |
 | Ctrl+C, Ctrl+X, Ctrl+V | Copy, cut, paste (up to 4K) |
 | Backspace, Delete, Tab, Enter | Edit (Enter keeps the indent); typing replaces a selection |
+| `(` `[` `{` `<` `"` | Also type their closer; typing the closer steps over it, and Backspace between an empty pair deletes both |
 | Ctrl+Z | Undo (the last 4K or so of changes; no redo) |
 | Ctrl+K | Delete the line |
 | Ctrl+S, Ctrl+O | Save, open (`.str` and `.txt` files on the USB drive) |
