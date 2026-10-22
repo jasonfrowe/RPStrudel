@@ -172,10 +172,11 @@ void editor_on_edit(uint16_t pos, int8_t delta)
             else
                 continue;
         } else {
-            if (at.pos > pos)
-                at.pos -= (uint16_t)-delta;
-            else if (pos < at.pos + at.len)
-                at.len = 0; /* part of it deleted */
+            uint16_t gone = (uint16_t)-delta; /* pos..pos+gone deleted */
+            if (at.pos >= pos + gone)
+                at.pos -= gone;
+            else if (at.pos + at.len > pos)
+                at.len = 0; /* some or all of it deleted */
             else
                 continue;
         }
@@ -184,11 +185,12 @@ void editor_on_edit(uint16_t pos, int8_t delta)
         pat_atom_put(i, &at);
     }
     if (error_pos != NO_POS) {
+        uint16_t gone = delta < 0 ? (uint16_t)-delta : 0;
         if (delta > 0 && error_pos >= pos)
             error_pos += (uint16_t)delta;
-        else if (delta < 0 && error_pos > pos)
-            error_pos -= (uint16_t)-delta;
-        else if (delta < 0 && error_pos == pos)
+        else if (delta < 0 && error_pos >= pos + gone)
+            error_pos -= gone;
+        else if (delta < 0 && error_pos >= pos)
             error_pos = NO_POS;
         editor_mark(error_pos);
     }

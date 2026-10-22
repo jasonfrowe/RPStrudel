@@ -101,6 +101,8 @@ again because the next one wasn't ready).
 | Ctrl+. (or Alt+.), Esc | Stop |
 | Arrows, Home, End, PgUp, PgDn | Move |
 | Backspace, Delete, Tab, Enter | Edit (Enter keeps the indent) |
+| Ctrl+K | Delete the line |
+| Ctrl+S, Ctrl+O | Save, open (`.str` and `.txt` files on the USB drive) |
 | Ctrl+D | Write the screen's text to the console (for test scripts) |
 
 Typing comes from the console, so the keyboard layout and key repeat are

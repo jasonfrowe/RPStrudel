@@ -3,4 +3,6 @@ Strudel-style live coding for the Picocomputer's OPL2.
 
 Ctrl+Enter     play / update (the change starts next cycle)
 Ctrl+. or Esc  stop
+Ctrl+S save      Ctrl+O open
+Ctrl+K           delete the line
 Arrows, Home, End, PgUp, PgDn, Backspace, Delete, Tab: edit

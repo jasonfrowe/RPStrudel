@@ -167,6 +167,31 @@ static void newline(void)
         insert(' ');
 }
 
+/* Ctrl+K: the cursor's line goes, with its newline (for the last line,
+ * the newline before it). The cursor ends at the start of the next. */
+static void delete_line(void)
+{
+    uint16_t cur = edit_cursor(), len = edit_length();
+    uint16_t from = line_start(cur), to = line_end(cur);
+    if (to < len)
+        to++;
+    else if (from > 0)
+        from--;
+    if (from == to)
+        return;
+    edit_set_cursor(from);
+    for (uint16_t i = from; i < to; i++)
+        edit_delete();
+    for (uint16_t n = to - from; n;) {
+        int8_t d = n > 127 ? 127 : (int8_t)n;
+        editor_on_edit(from, (int8_t)-d);
+        n -= (uint16_t)d;
+    }
+    if (from > 0 && from == edit_length() && text_at(from - 1) != '\n')
+        edit_set_cursor(line_start(from)); /* was the last line */
+    need_all = true;
+}
+
 static void up_down(int8_t lines)
 {
     uint16_t cur = edit_cursor();
@@ -273,6 +298,8 @@ void editor_key(uint8_t c, bool ctrl)
         if (ctrl)
             return; /* Ctrl+Enter is the caller's */
         newline();
+    } else if (c == 0x0b) {
+        delete_line(); /* Ctrl+K */
     } else if (c == '\t') {
         for (uint8_t i = 0; i < INDENT; i++)
             insert(' ');

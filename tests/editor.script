@@ -110,3 +110,30 @@ release 0x07
 release 0xE0
 run 120
 expect "STOPPED"
+
+# 6. Ctrl+K deletes lines: the demo's first four go, and it still plays
+# (first past the rest of the last screen dump, to its bottom row)
+expect "Ctrl+O open"
+key home
+key pageup
+key pageup
+key k+ctrl
+key k+ctrl
+key k+ctrl
+key k+ctrl
+run 10
+press 0xE0
+press 0x28
+run 3
+release 0x28
+release 0xE0
+run 200
+press 0xE0
+press 0x07
+run 2
+release 0x07
+release 0xE0
+run 120
+expect-not "RPStrudel: Strudel patterns"
+expect "Ln    1  Col   1"
+expect "updated"
