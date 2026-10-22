@@ -1,8 +1,7 @@
 /* RPStrudel: Strudel-style live coding for the Picocomputer's OPL2.
  *
- * Milestone 2 plays a Strudel program through the real pattern engine,
- * shows the code, and lights each token as it plays. The editor comes in
- * milestone 3; for now the program is the one below. */
+ * Edit the code, press Ctrl+Enter, and it plays from the next cycle. Each
+ * token lights up as it sounds. */
 
 #include <rp6502.h>
 #include <stdbool.h>
@@ -10,6 +9,8 @@
 #include <string.h>
 
 #include "clock.h"
+#include "editbuf.h"
+#include "editor.h"
 #include "hidkeys.h"
 #include "opl.h"
 #include "patches.h"
@@ -19,8 +20,9 @@
 #include "screen.h"
 #include "xram.h"
 
-static const char program[] =
+static const char demo[] =
     "// RPStrudel: Strudel patterns on the OPL2\n"
+    "// Ctrl+Enter plays your changes, Ctrl+. stops\n"
     "setcpm(30)\n"
     "\n"
     "$: s(\"bd(3,8), [~ sd]*2\")\n"
@@ -28,31 +30,34 @@ static const char program[] =
     "$: note(\"<[c2 c3]*4 [ab1 ab2]*4>\").s(\"gm_synth_bass_1\")\n"
     "$: note(\"<c4 eb4 g4 [bb4 c5]>(3,8)\").s(\"gm_epiano1\").gain(.7)\n";
 
-#define CODE_X 2
-#define CODE_Y 3
-#define CODE_ROWS 28
-#define CODE_COLS (TEXT_COLS - CODE_X - 1)
-#define BAR_X 13
-#define BAR_Y 33
+/* Screen layout */
+#define TITLE_BG 24
+#define EDIT_X 1
+#define EDIT_Y 2
+#define EDIT_COLS 78
+#define EDIT_ROWS 43
+#define STATUS_Y 46
+#define ERROR_Y 47
+#define BAR_Y 49
+#define BAR_X 8
 #define BAR_W 64
-#define TEMPO_Y 35
-#define VOICE_Y 38
-#define METER_X 24
-#define METER_W 32
-#define ERROR_Y 49
-#define TIMER_Y 52
+#define VOICE_Y 51
+#define METER_W 16
+#define STATS_Y 57
 #define HILITE_FRAMES 6
+#define MESSAGE_FRAMES 150
 #define GLYPH_BLOCK 0xDB /* code page 437 full block */
 #define GLYPH_SHADE 0xB0 /* light shade */
+#define NO_POS 0xFFFF
+#define RIA_READY_RX_BIT 0x40
 
-static keyboard_t kb, kb_prev;
+static keyboard_t kb;
 static uint8_t hilite[PAT_ATOMS]; /* frames left per atom */
 static uint8_t meter[OPL_VOICES];
 static uint8_t shown_patch[OPL_VOICES];
-static uint16_t line_start[CODE_ROWS + 1];
-static uint8_t line_count;
-static bool loaded;
 static const char *shown_error = (const char *)1;
+static uint16_t error_pos = NO_POS;
+static uint8_t message_frames;
 static uint16_t ms_per_second;
 static uint16_t fill_ms, fill_ms_max;
 
@@ -78,6 +83,8 @@ static uint16_t stack_free(void)
     return (uint16_t)(p - __heap_start);
 }
 
+/* ---- numbers ---- */
+
 static char *u16_str(char *end, uint16_t v)
 {
     *--end = 0;
@@ -88,163 +95,171 @@ static char *u16_str(char *end, uint16_t v)
     return end;
 }
 
-static void draw_u16(uint8_t x, uint8_t y, uint16_t v, uint8_t width, uint8_t fg)
+static void draw_u16(uint8_t x, uint8_t y, uint16_t v, uint8_t width, uint8_t fg, uint8_t bg)
 {
     char buf[8];
     char *s = u16_str(buf + sizeof(buf), v);
     uint8_t len = (uint8_t)(buf + sizeof(buf) - 1 - s);
     if (len < width)
-        screen_fill(x, y, width - len, ' ', fg, COL_BLACK);
-    screen_text(x + (len < width ? width - len : 0), y, s, fg, COL_BLACK);
+        screen_fill(x, y, width - len, ' ', fg, bg);
+    screen_text(x + (len < width ? width - len : 0), y, s, fg, bg);
 }
 
 /* A tenths value as "30.0". */
-static void draw_tenths(uint8_t x, uint8_t y, uint16_t v, uint8_t fg)
+static void draw_tenths(uint8_t x, uint8_t y, uint16_t v, uint8_t fg, uint8_t bg)
 {
-    draw_u16(x, y, v / 10, 3, fg);
+    draw_u16(x, y, v / 10, 3, fg, bg);
     char frac[3] = {'.', (char)('0' + v % 10), 0};
-    screen_text(x + 3, y, frac, fg, COL_BLACK);
+    screen_text(x + 3, y, frac, fg, bg);
 }
 
-/* ---- code ---- */
+/* ---- highlights ---- */
 
-static void split_lines(void)
-{
-    line_count = 0;
-    uint16_t len = sizeof(program) - 1;
-    uint16_t at = 0;
-    while (at < len && line_count < CODE_ROWS) {
-        line_start[line_count++] = at;
-        while (at < len && program[at] != '\n')
-            at++;
-        at++;
-    }
-    /* one past each line's newline, so a line ends at line_start[i+1] - 1 */
-    line_start[line_count] = at;
-}
-
-/* Where a position in the code is on the screen. */
-static bool code_xy(uint16_t pos, uint8_t *x, uint8_t *y)
-{
-    for (uint8_t i = 0; i < line_count; i++) {
-        if (pos < line_start[i + 1]) {
-            uint16_t col = pos - line_start[i];
-            if (col >= CODE_COLS)
-                return false;
-            *x = CODE_X + (uint8_t)col;
-            *y = CODE_Y + i;
-            return true;
-        }
-    }
-    return false;
-}
-
+/* A token's cells, recoloured in one go (a token never spans lines). */
 static void draw_atom(uint8_t a, bool lit)
 {
-    uint8_t x, y;
     const pat_atom_t *at = &pat_atoms[a];
-    if (!code_xy(at->pos, &x, &y))
+    uint8_t x, y;
+    if (!at->len || !editor_xy(at->pos, &x, &y))
         return;
     uint8_t len = at->len;
-    if (x + len > CODE_X + CODE_COLS)
-        len = CODE_X + CODE_COLS - x;
-    screen_color(x, y, len, lit ? COL_BLACK : COL_YELLOW, lit ? COL_HILITE : COL_BLACK);
+    if (x + len > EDIT_X + EDIT_COLS)
+        len = EDIT_X + EDIT_COLS - x;
+    screen_color(x, y, len, lit ? COL_BLACK : EDITOR_VALUE, lit ? COL_HILITE : COL_BLACK);
+    /* the cursor and an error mark stay as they were */
+    uint16_t cur = edit_cursor();
+    if (cur >= at->pos && cur < at->pos + len)
+        screen_color(x + (uint8_t)(cur - at->pos), y, 1, COL_BLACK, COL_WHITE);
+    if (error_pos >= at->pos && error_pos < at->pos + len)
+        screen_color(x + (uint8_t)(error_pos - at->pos), y, 1, COL_WHITE, COL_RED);
 }
 
-static void draw_code(void)
+static void update_hilites(void)
 {
-    for (uint8_t i = 0; i < line_count; i++) {
-        uint16_t from = line_start[i];
-        uint16_t to = line_start[i + 1] - 1;
-        uint8_t y = CODE_Y + i;
-        screen_fill(CODE_X, y, CODE_COLS, ' ', COL_WHITE, COL_BLACK);
-        bool comment = false;
-        for (uint16_t p = from; p < to && p - from < CODE_COLS; p++) {
-            char c = program[p];
-            if (c == '/' && p + 1 < to && program[p + 1] == '/')
-                comment = true;
-            char s[2] = {c, 0};
-            screen_text(CODE_X + (uint8_t)(p - from), y, s, comment ? COL_DARKGREY : COL_WHITE, COL_BLACK);
+    uint8_t s;
+    while ((s = clock_next_hit()) != 0xFF) {
+        if (s < pat_atom_count && pat_atoms[s].len) {
+            if (!hilite[s])
+                draw_atom(s, true);
+            hilite[s] = HILITE_FRAMES;
         }
     }
-    if (loaded)
-        for (uint8_t a = 0; a < pat_atom_count; a++)
-            draw_atom(a, false);
+    for (uint8_t i = 0; i < pat_atom_count; i++) {
+        if (hilite[i] && --hilite[i] == 0)
+            draw_atom(i, false);
+    }
+}
+
+/* Keep positions on the same text as it is edited. */
+void editor_on_edit(uint16_t pos, int8_t delta)
+{
+    for (uint8_t i = 0; i < pat_atom_count; i++) {
+        pat_atom_t *at = &pat_atoms[i];
+        if (!at->len)
+            continue;
+        if (delta > 0) {
+            if (at->pos >= pos)
+                at->pos += (uint16_t)delta;
+            else if (pos < at->pos + at->len)
+                at->len = 0; /* typed inside it */
+        } else {
+            if (at->pos > pos)
+                at->pos -= (uint16_t)-delta;
+            else if (pos < at->pos + at->len)
+                at->len = 0; /* part of it deleted */
+        }
+        if (!at->len)
+            hilite[i] = 0;
+    }
+    if (error_pos != NO_POS) {
+        if (delta > 0 && error_pos >= pos)
+            error_pos += (uint16_t)delta;
+        else if (delta < 0 && error_pos > pos)
+            error_pos -= (uint16_t)-delta;
+        else if (delta < 0 && error_pos == pos)
+            error_pos = NO_POS;
+        editor_mark(error_pos);
+    }
 }
 
 /* ---- status ---- */
 
-static void draw_tempo(void)
+static void message(const char *msg, uint8_t fg)
 {
-    uint16_t cpm10 = clock_cpm10();
-    screen_text(2, TEMPO_Y, "cpm", COL_GREY, COL_BLACK);
-    draw_tenths(6, TEMPO_Y, cpm10, COL_CYAN);
-    screen_text(14, TEMPO_Y, "bpm", COL_GREY, COL_BLACK);
-    draw_tenths(18, TEMPO_Y, cpm10 * 4, COL_CYAN); /* 4 beats per cycle */
-    screen_text(26, TEMPO_Y, "(4 beats per cycle)", COL_DARKGREY, COL_BLACK);
+    screen_fill(30, STATUS_Y, TEXT_COLS - 30, ' ', fg, COL_PANEL);
+    screen_text(TEXT_COLS - 1 - (uint8_t)strlen(msg), STATUS_Y, msg, fg, COL_PANEL);
+    message_frames = MESSAGE_FRAMES;
 }
 
-/* An error with a caret under where it is in the code. */
 static void draw_error(void)
 {
-    const char *msg = loaded ? player_error : pat_error;
+    const char *msg = player_error;
     if (msg == shown_error)
         return;
     shown_error = msg;
     screen_fill(0, ERROR_Y, TEXT_COLS, ' ', COL_WHITE, COL_BLACK);
-    screen_fill(0, ERROR_Y + 1, TEXT_COLS, ' ', COL_WHITE, COL_BLACK);
-    if (!msg)
+    if (!msg) {
+        error_pos = NO_POS;
+        editor_mark(NO_POS);
         return;
+    }
     screen_text(2, ERROR_Y, "error:", COL_RED, COL_BLACK);
     screen_text(9, ERROR_Y, msg, COL_WHITE, COL_BLACK);
-    uint8_t x, y;
-    uint16_t pos = loaded ? player_error_pos : prog_error_pos;
-    if (code_xy(pos, &x, &y)) {
-        screen_color(x, y, 1, COL_WHITE, COL_RED);
-        screen_text(2, ERROR_Y + 1, "(marked in red in the code)", COL_DARKGREY, COL_BLACK);
-    }
+    error_pos = player_error_pos;
+    editor_mark(error_pos);
+    screen_text(TEXT_COLS - 22, ERROR_Y, "(marked red in code)", COL_DARKGREY, COL_BLACK);
+}
+
+static void draw_title(void)
+{
+    bool run = clock_running();
+    screen_text(TEXT_COLS - 10, 0, run ? "  PLAYING" : "  STOPPED", run ? COL_GREEN : COL_RED, TITLE_BG);
+    uint16_t cpm10 = clock_cpm10();
+    screen_text(36, 0, "cpm", COL_GREY, TITLE_BG);
+    draw_tenths(40, 0, cpm10, COL_CYAN, TITLE_BG);
+    screen_text(48, 0, "bpm", COL_GREY, TITLE_BG);
+    draw_tenths(52, 0, cpm10 * 4, COL_CYAN, TITLE_BG); /* 4 beats per cycle */
+}
+
+static void draw_status(void)
+{
+    screen_text(2, STATUS_Y, "Ln", COL_GREY, COL_PANEL);
+    draw_u16(5, STATUS_Y, editor_line(), 4, COL_WHITE, COL_PANEL);
+    screen_text(11, STATUS_Y, "Col", COL_GREY, COL_PANEL);
+    draw_u16(15, STATUS_Y, editor_col(), 3, COL_WHITE, COL_PANEL);
+    draw_u16(19, STATUS_Y, edit_length(), 5, COL_DARKGREY, COL_PANEL);
+    screen_text(24, STATUS_Y, " chars", COL_DARKGREY, COL_PANEL);
 }
 
 static void draw_static(void)
 {
-    screen_fill(0, 0, TEXT_COLS, ' ', COL_WHITE, 24);
-    screen_text(2, 0, "RPStrudel", COL_WHITE, 24);
-    screen_text(14, 0, "milestone 2: mini-notation", COL_CYAN, 24);
-
-    screen_text(2, 2, "code", COL_GREY, COL_BLACK);
-    draw_code();
+    screen_fill(0, 0, TEXT_COLS, ' ', COL_WHITE, TITLE_BG);
+    screen_text(2, 0, "RPStrudel", COL_WHITE, TITLE_BG);
+    draw_title();
+    screen_fill(0, STATUS_Y, TEXT_COLS, ' ', COL_WHITE, COL_PANEL);
 
     screen_text(2, BAR_Y, "cycle", COL_GREY, COL_BLACK);
-    draw_tempo();
-
-    screen_text(2, VOICE_Y - 1, "voices", COL_GREY, COL_BLACK);
     for (uint8_t v = 0; v < OPL_VOICES; v++) {
         char label[2] = {(char)('1' + v), 0};
-        screen_text(2, VOICE_Y + v, label, COL_DARKGREY, COL_BLACK);
+        screen_text(v < 5 ? 2 : 42, VOICE_Y + v % 5, label, COL_DARKGREY, COL_BLACK);
     }
-
-    screen_text(2, TIMER_Y, "timer", COL_GREY, COL_BLACK);
-    screen_text(14, TIMER_Y, "ms per second (should be 1000)", COL_DARKGREY, COL_BLACK);
-    screen_text(2, TIMER_Y + 1, "query", COL_GREY, COL_BLACK);
-    screen_text(14, TIMER_Y + 1, "ms per cycle, now and most", COL_DARKGREY, COL_BLACK);
-    screen_text(2, TIMER_Y + 2, "stack", COL_GREY, COL_BLACK);
-    screen_text(14, TIMER_Y + 2, "bytes never used", COL_DARKGREY, COL_BLACK);
+    screen_text(2, STATS_Y, "timer", COL_GREY, COL_BLACK);
+    screen_text(14, STATS_Y, "ms/s", COL_DARKGREY, COL_BLACK);
+    screen_text(20, STATS_Y, "query", COL_GREY, COL_BLACK);
+    screen_text(32, STATS_Y, "ms, max", COL_DARKGREY, COL_BLACK);
+    screen_text(46, STATS_Y, "stack", COL_GREY, COL_BLACK);
+    screen_text(58, STATS_Y, "free", COL_DARKGREY, COL_BLACK);
+    screen_text(64, STATS_Y, "late", COL_GREY, COL_BLACK);
 
     screen_fill(0, TEXT_ROWS - 1, TEXT_COLS, ' ', COL_WHITE, COL_PANEL);
-    screen_text(2, TEXT_ROWS - 1, "SPACE play/stop   - = tempo   ESC hush", COL_GREY, COL_PANEL);
-}
-
-static void draw_state(void)
-{
-    bool run = clock_running();
-    screen_text(TEXT_COLS - 10, 0, run ? "  PLAYING" : "  STOPPED", run ? COL_GREEN : COL_RED, 24);
+    screen_text(2, TEXT_ROWS - 1, "Ctrl+Enter play/update   Ctrl+. or Esc stop", COL_GREY, COL_PANEL);
 }
 
 static void draw_position(void)
 {
     uint16_t cycle, pos;
     clock_position(&cycle, &pos);
-    draw_u16(8, BAR_Y, cycle, 4, COL_WHITE);
+    draw_u16(2, BAR_Y + 1, cycle, 5, COL_WHITE, COL_BLACK);
     uint8_t at = (uint8_t)(pos >> 10); /* 0-63 */
     RIA.addr0 = XRAM_TEXT + ((unsigned)BAR_Y * TEXT_COLS + BAR_X) * sizeof(text_cell_t);
     RIA.step0 = 1;
@@ -260,37 +275,22 @@ static void draw_voices(void)
 {
     uint16_t hits = clock_take_voice_hits();
     for (uint8_t v = 0; v < OPL_VOICES; v++) {
-        uint8_t y = VOICE_Y + v;
+        uint8_t x = v < 5 ? 4 : 44;
+        uint8_t y = VOICE_Y + v % 5;
         uint8_t p = player_voice_patch[v];
         if (p != shown_patch[v]) {
             shown_patch[v] = p;
-            screen_fill(4, y, METER_X - 5, ' ', COL_WHITE, COL_BLACK);
-            screen_text(4, y, patch_name(p), COL_GREY, COL_BLACK);
+            screen_fill(x, y, 18, ' ', COL_WHITE, COL_BLACK);
+            screen_text(x, y, patch_name(p), COL_GREY, COL_BLACK);
         }
         if (hits & (1u << v))
             meter[v] = METER_W;
         else if (meter[v] > 0)
-            meter[v] -= meter[v] > 3 ? 3 : meter[v];
+            meter[v]--;
         uint8_t n = meter[v];
         uint8_t color = PATCH_IS_DRUM(p) ? COL_GREEN : COL_MAGENTA;
-        screen_fill(METER_X, y, n, GLYPH_BLOCK, color, COL_BLACK);
-        screen_fill(METER_X + n, y, METER_W - n, ' ', COL_WHITE, COL_BLACK);
-    }
-}
-
-static void update_hilites(void)
-{
-    uint8_t s;
-    while ((s = clock_next_hit()) != 0xFF) {
-        if (s < pat_atom_count) {
-            if (!hilite[s])
-                draw_atom(s, true);
-            hilite[s] = HILITE_FRAMES;
-        }
-    }
-    for (uint8_t i = 0; i < pat_atom_count; i++) {
-        if (hilite[i] && --hilite[i] == 0)
-            draw_atom(i, false);
+        screen_fill(x + 18, y, n, GLYPH_BLOCK, color, COL_BLACK);
+        screen_fill(x + 18 + n, y, METER_W - n, ' ', COL_WHITE, COL_BLACK);
     }
 }
 
@@ -305,52 +305,101 @@ void clock_fill(cycle_events_t *out, uint16_t cycle)
         fill_ms_max = fill_ms;
 }
 
-static bool key_pressed(uint8_t code)
-{
-    return KEYBOARD_PRESSED(kb.keys, code) && !KEYBOARD_PRESSED(kb_prev.keys, code);
-}
-
 static void stop(void)
 {
     clock_stop();
     for (uint8_t i = 0; i < pat_atom_count; i++)
         if (hilite[i])
             hilite[i] = 1; /* unlit on the next frame */
+    draw_title();
 }
 
-static void start(void)
+/* Ctrl+Enter: the new code plays from the next cycle, or the old code
+ * carries on if the new code has an error. */
+static void evaluate(void)
 {
-    if (loaded)
+    uint16_t t0 = clock_ms();
+    bool ok = player_load(edit_length());
+    shown_error = (const char *)1; /* show it, or clear it */
+    if (!ok) {
+        message("not changed: see the error", COL_RED);
+        return;
+    }
+    memset(hilite, 0, sizeof hilite);
+    editor_dirty();
+    fill_ms_max = 0;
+    if (clock_running()) {
+        if (clock_refill())
+            player_rewind();
+    } else {
         clock_start();
+    }
+    char msg[32] = "updated, parsed in ";
+    char num[8];
+    strcat(msg, u16_str(num + sizeof num, clock_ms() - t0));
+    strcat(msg, " ms");
+    message(msg, COL_GREEN);
+    draw_title();
 }
+
+/* Ctrl+D: writes the screen's text to the console, for test scripts. */
+static void console_out(char c)
+{
+    while (!(RIA.ready & 0x80))
+        ;
+    RIA.tx = (uint8_t)c;
+}
+
+static void dump_screen(void)
+{
+    for (uint8_t y = 0; y < TEXT_ROWS; y++) {
+        uint8_t last = 0;
+        for (uint8_t x = 0; x < TEXT_COLS; x++) {
+            RIA.addr0 = XRAM_TEXT + ((unsigned)y * TEXT_COLS + x) * sizeof(text_cell_t);
+            if (RIA.rw0 != ' ')
+                last = x + 1;
+        }
+        for (uint8_t x = 0; x < last; x++) {
+            RIA.addr0 = XRAM_TEXT + ((unsigned)y * TEXT_COLS + x) * sizeof(text_cell_t);
+            uint8_t c = RIA.rw0;
+            console_out(c >= 0x20 && c < 0x7F ? (char)c : '#');
+        }
+        console_out('\r');
+        console_out('\n');
+    }
+}
+
+static uint8_t enters_to_swallow;
 
 static void handle_keys(void)
 {
-    kb_prev = kb;
     xram0_read(&kb, XRAM_KEYBOARD, sizeof(kb));
-    if (KEYBOARD_PRESSED(kb.keys, KEYBOARD_NO_KEY))
-        return;
+    bool ctrl = KEYBOARD_PRESSED(kb.keys, HID_KEY_CONTROL_LEFT) || KEYBOARD_PRESSED(kb.keys, HID_KEY_CONTROL_RIGHT);
+    uint8_t events = clock_take_keys();
+    enters_to_swallow += clock_take_ctrl_enters();
 
-    if (key_pressed(HID_KEY_SPACE)) {
-        if (clock_running())
-            stop();
-        else
-            start();
-        draw_state();
+    /* Text first (it comes from the console, which knows the keyboard
+     * layout), so what was typed before a Ctrl+Enter is in what plays. */
+    while (RIA.ready & RIA_READY_RX_BIT) {
+        uint8_t c = RIA.rx;
+        if (c == '\r') {
+            if (enters_to_swallow) {
+                enters_to_swallow--;
+                continue; /* the Enter of a Ctrl+Enter */
+            }
+            if (ctrl)
+                continue; /* its key repeat */
+        }
+        editor_key(c, ctrl);
     }
-    if (key_pressed(HID_KEY_ESCAPE)) {
+    editor_end_keys();
+
+    if (events & CLOCK_KEY_EVAL)
+        evaluate();
+    if (events & CLOCK_KEY_STOP)
         stop();
-        draw_state();
-    }
-    if (key_pressed(HID_KEY_MINUS) || key_pressed(HID_KEY_EQUAL)) {
-        uint16_t c = clock_cpm10();
-        if (key_pressed(HID_KEY_MINUS))
-            c = c > 50 ? c - 10 : 40;
-        else
-            c = c < 990 ? c + 10 : 1000;
-        clock_set_cpm10(c);
-        draw_tempo();
-    }
+    if (events & CLOCK_KEY_DUMP)
+        dump_screen();
 }
 
 int main(void)
@@ -360,13 +409,11 @@ int main(void)
     xreg_ria_keyboard(XRAM_KEYBOARD);
     opl_init();
     clock_init();
-    split_lines();
-    loaded = player_load(program, sizeof(program) - 1);
     memset(shown_patch, 0xFE, sizeof(shown_patch));
     draw_static();
-    draw_error();
-    start();
-    draw_state();
+    editor_init(EDIT_X, EDIT_Y, EDIT_COLS, EDIT_ROWS, demo);
+    editor_set_lit(hilite);
+    evaluate();
 
     uint8_t vs = RIA.vsync;
     uint8_t frames = 0;
@@ -379,21 +426,26 @@ int main(void)
         vs = RIA.vsync;
 
         handle_keys();
+        clock_service(); /* also when the frame's work ran long */
+        if (editor_draw())
+            draw_status();
         update_hilites();
         draw_voices();
         draw_position();
         draw_error();
+        if (message_frames && --message_frames == 0)
+            screen_fill(30, STATUS_Y, TEXT_COLS - 30, ' ', COL_WHITE, COL_PANEL);
 
         if (frames >= 60) {
             uint16_t now = clock_ms();
-            ms_per_second = now - ms_mark;
+            ms_per_second = (uint16_t)((uint32_t)(now - ms_mark) * 60 / frames);
             ms_mark = now;
-            ms_per_second = (uint16_t)((uint32_t)ms_per_second * 60 / frames);
             frames = 0;
-            draw_u16(8, TIMER_Y, ms_per_second, 5, COL_WHITE);
-            draw_u16(8, TIMER_Y + 1, fill_ms, 5, COL_WHITE);
-            draw_u16(46, TIMER_Y + 1, fill_ms_max, 5, COL_WHITE);
-            draw_u16(8, TIMER_Y + 2, stack_free(), 5, COL_WHITE);
+            draw_u16(8, STATS_Y, ms_per_second, 5, COL_WHITE, COL_BLACK);
+            draw_u16(26, STATS_Y, fill_ms, 5, COL_WHITE, COL_BLACK);
+            draw_u16(39, STATS_Y, fill_ms_max, 5, COL_WHITE, COL_BLACK);
+            draw_u16(52, STATS_Y, stack_free(), 5, COL_WHITE, COL_BLACK);
+            draw_u16(69, STATS_Y, clock_late(), 5, COL_WHITE, COL_BLACK);
         }
     }
 }

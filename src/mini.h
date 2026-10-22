@@ -7,10 +7,10 @@
 #include "rat.h"
 
 /* Parses Strudel mini-notation (the text inside the quotes) into pattern
- * nodes. src is the whole source text; the mini string is src[from..to).
- * Atoms keep their position in src for highlighting. Returns the root
- * node, or PAT_NONE with pat_error and mini_error_pos set. */
-uint8_t mini_parse(const char *src, uint16_t from, uint16_t to);
+ * nodes: the program text (text.h) from..to. Atoms keep their position in
+ * the text for highlighting. Returns the root node, or PAT_NONE with
+ * pat_error and mini_error_pos set. */
+uint8_t mini_parse(uint16_t from, uint16_t to);
 
 extern uint16_t mini_error_pos;
 

@@ -5,6 +5,7 @@
 
 #include "pattern.h"
 #include "prog.h"
+#include "text.h"
 
 extern unsigned long rat_calls[8], gcd_calls, gcd_loops, big_mul, div32;
 
@@ -14,9 +15,14 @@ static const char program[] =
     "$: note(\"<[c2 c3]*4 [ab1 ab2]*4>\").s(\"gm_synth_bass_1\")\n"
     "$: note(\"<c4 eb4 g4 [bb4 c5]>(3,8)\").s(\"gm_epiano1\").gain(.7)\n";
 
+char text_at(uint16_t pos)
+{
+    return pos < sizeof(program) - 1 ? program[pos] : 0;
+}
+
 int main(void)
 {
-    if (!prog_parse(program, sizeof(program) - 1)) {
+    if (!prog_parse(sizeof(program) - 1)) {
         printf("parse error: %s\n", pat_error);
         return 1;
     }

@@ -2,13 +2,13 @@
 
 #include "mini.h"
 #include "pattern.h"
+#include "text.h"
 
 prog_pattern_t prog_patterns[PROG_PATTERNS];
 uint8_t prog_pattern_count;
 int16_t prog_cpm10;
 uint16_t prog_error_pos;
 
-static const char *S;
 static uint16_t P, END;
 
 static bool fail(const char *msg, uint16_t pos)
@@ -32,22 +32,23 @@ static bool is_digit(char c)
 
 static char peek(void)
 {
-    return P < END ? S[P] : 0;
+    return P < END ? text_at(P) : 0;
 }
 
 /* Skips spaces, newlines and comments. */
 static void skip(void)
 {
     while (P < END) {
-        char c = S[P];
+        char c = text_at(P);
+        char c2 = P + 1 < END ? text_at(P + 1) : 0;
         if (c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == ';') {
             P++;
-        } else if (c == '/' && P + 1 < END && S[P + 1] == '/') {
-            while (P < END && S[P] != '\n')
+        } else if (c == '/' && c2 == '/') {
+            while (P < END && text_at(P) != '\n')
                 P++;
-        } else if (c == '/' && P + 1 < END && S[P + 1] == '*') {
+        } else if (c == '/' && c2 == '*') {
             P += 2;
-            while (P + 1 < END && !(S[P] == '*' && S[P + 1] == '/'))
+            while (P + 1 < END && !(text_at(P) == '*' && text_at(P + 1) == '/'))
                 P++;
             P = P + 2 < END ? P + 2 : END;
         } else {
@@ -70,7 +71,7 @@ static uint8_t ident(void)
 static bool word_is(uint16_t at, uint8_t len, const char *w)
 {
     for (uint8_t i = 0; i < len; i++)
-        if (S[at + i] != w[i])
+        if (text_at(at + i) != w[i])
             return false;
     return w[len] == 0;
 }
@@ -101,7 +102,9 @@ static uint8_t number_atom(void)
     pat_atom_t *at = &pat_atoms[a];
     at->pos = start;
     at->len = (uint8_t)(P - start);
-    if (!mini_decimal(S + start, at->len, &at->num)) {
+    char buf[24];
+    uint8_t got = text_copy(start, at->len, buf, sizeof buf);
+    if (at->len >= sizeof buf || !mini_decimal(buf, got, &at->num)) {
         fail("bad number", start);
         return PAT_NONE;
     }
@@ -117,13 +120,13 @@ static uint8_t arg(void)
     char c = peek();
     if (c == '"' || c == '\'' || c == '`') {
         uint16_t start = ++P;
-        while (P < END && S[P] != c)
+        while (P < END && text_at(P) != c)
             P++;
         if (P >= END) {
             fail("unclosed string", start - 1);
             return PAT_NONE;
         }
-        uint8_t node = mini_parse(S, start, P);
+        uint8_t node = mini_parse(start, P);
         if (node == PAT_NONE) {
             prog_error_pos = mini_error_pos;
             return PAT_NONE;
@@ -200,7 +203,7 @@ static uint8_t method(uint8_t left, uint16_t at, uint8_t len)
         return friend == PAT_NONE ? PAT_NONE : pair(N_SET, left, friend);
     }
     if (word_is(at, len, "fast") || word_is(at, len, "slow")) {
-        bool slow = S[at] == 's';
+        bool slow = text_at(at) == 's';
         if (a == PAT_NONE) {
             fail("needs an amount", at);
             return PAT_NONE;
@@ -295,9 +298,8 @@ static bool tempo(uint16_t at, uint8_t len)
     return true;
 }
 
-bool prog_parse(const char *src, uint16_t len)
+bool prog_parse(uint16_t len)
 {
-    S = src;
     P = 0;
     END = len;
     pat_reset();
@@ -328,14 +330,13 @@ bool prog_parse(const char *src, uint16_t len)
         if (rat_overflow)
             return fail("numbers too big", at);
         prog_patterns[prog_pattern_count].root = root;
-        prog_patterns[prog_pattern_count].muted = label && S[at] == '_';
+        prog_patterns[prog_pattern_count].muted = label && text_at(at) == '_';
         prog_pattern_count++;
     }
 }
 
-uint8_t prog_parse_expr(const char *src, uint16_t from, uint16_t to)
+uint8_t prog_parse_expr(uint16_t from, uint16_t to)
 {
-    S = src;
     P = from;
     END = to;
     uint8_t root = expr();

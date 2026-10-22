@@ -1,5 +1,5 @@
 # Smoke test: the demo program plays through the pattern engine, keys the
-# OPL2 voices, and Space stops and restarts them. Run with:
+# OPL2 voices, Esc stops them and Ctrl+Enter starts them again. Run with:
 #   ./tools/rp6502-emu build/llvm-mos/release/RPStrudel.rp6502 --mute --script tests/smoke.script
 
 run 100
@@ -10,16 +10,18 @@ peek xram:0xA0 0x59 0x59
 # waveform select on
 peek xram:0x01 0x20
 
-# Space stops: every voice keyed off
-press space
+# Esc stops: every voice keyed off
+press escape
 run 3
-release space
+release escape
 run 10
 peek xram:0xB0 0x11 0x11
 
-# Space starts again from cycle 0
-press space
+# Ctrl+Enter starts again from cycle 0
+press 0xE0
+press 0x28
 run 3
-release space
-run 30
+release 0x28
+release 0xE0
+run 40
 peek xram:0xB0 0x31 0x31

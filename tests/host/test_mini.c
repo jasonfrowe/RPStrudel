@@ -12,6 +12,7 @@
 #include "mini.h"
 #include "pattern.h"
 #include "prog.h"
+#include "text.h"
 
 /* r + k, printed as Strudel prints fractions */
 static void print_rat(FILE *f, const rat_t *r, long k)
@@ -46,6 +47,15 @@ static int cmp_row(const void *pa, const void *pb)
 }
 
 static const char *const ctl_names[PAT_CTLS] = {"s", "note", "n", "gain"};
+
+/* The parsers read the current case's line through text_at. */
+static const char *text;
+static uint16_t text_len;
+
+char text_at(uint16_t pos)
+{
+    return pos < text_len ? text[pos] : 0;
+}
 
 /* The haps at pat_haps[0..n) as sorted lines, joined, for comparing. */
 static void snapshot(uint16_t n, long shift, char *out, size_t size)
@@ -114,7 +124,9 @@ int main(int argc, char **argv)
         printf("= %.*s\n", to - from, s);
 
         pat_reset();
-        uint8_t root = prog ? prog_parse_expr(src, from, to) : mini_parse(src, from, to);
+        text = src;
+        text_len = (uint16_t)len;
+        uint8_t root = prog ? prog_parse_expr(from, to) : mini_parse(from, to);
         if (root == PAT_NONE) {
             printf("! parse error at %u: %s\n", (prog ? prog_error_pos : mini_error_pos) - from, pat_error);
             failures++;

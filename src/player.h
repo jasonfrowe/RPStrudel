@@ -10,9 +10,14 @@
  * each pattern's onsets, picks a patch and note for each, gives it a voice,
  * and schedules its note-off (in a later cycle when it lasts that long). */
 
-/* Parses the program and keeps its tempo. Returns false with pat_error
- * and prog_error_pos set. */
-bool player_load(const char *code, uint16_t len);
+/* Parses the program text (text.h, 0..len) and keeps its tempo. If it
+ * fails, the program that was playing is put back and false is returned
+ * with player_error and player_error_pos saying why. */
+bool player_load(uint16_t len);
+
+/* Undoes the last fill's effect on voices and note-offs, before that cycle
+ * is filled again (with a new program). */
+void player_rewind(void);
 
 /* The clock's fill callback. */
 void player_fill(cycle_events_t *out, uint16_t cycle);

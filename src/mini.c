@@ -1,6 +1,7 @@
 #include "mini.h"
 
 #include "pattern.h"
+#include "text.h"
 
 /* A recursive descent parser that follows Strudel's krill.pegjs grammar
  * rule for rule, building pattern nodes the way mini.mjs does:
@@ -18,11 +19,10 @@
  * its own weight. Not yet: "?" and "|" (random), and "..". */
 
 #define MAX_OPS 6
-#define PSTACK 48
+#define PSTACK 32
 
 uint16_t mini_error_pos;
 
-static const char *S;
 static uint16_t P, END;
 
 static const rat_t R0 = {0, 1};
@@ -30,17 +30,17 @@ static const rat_t R1 = {1, 1};
 
 static char peek(void)
 {
-    return P < END ? S[P] : 0;
+    return P < END ? text_at(P) : 0;
 }
 
 static char peek2(void)
 {
-    return P + 1 < END ? S[P + 1] : 0;
+    return P + 1 < END ? text_at(P + 1) : 0;
 }
 
 static void ws(void)
 {
-    while (P < END && (S[P] == ' ' || S[P] == '\t' || S[P] == '\n' || S[P] == '\r'))
+    for (char c; P < END && ((c = text_at(P)) == ' ' || c == '\t' || c == '\n' || c == '\r');)
         P++;
 }
 
@@ -68,60 +68,33 @@ static bool is_step_char(char c)
  * common cases: sign, digits, fraction, exponent. */
 bool mini_decimal(const char *t, uint8_t len, rat_t *out)
 {
+    /* sign, digits, fraction; no exponents (rare in patterns) */
     uint8_t i = 0;
     bool neg = false;
     if (i < len && (t[i] == '-' || t[i] == '+'))
         neg = t[i++] == '-';
-    int32_t num = 0, den = 1;
-    bool digits = false;
-    while (i < len && is_digit(t[i])) {
-        num = num * 10 + (t[i++] - '0');
-        digits = true;
-        if (num > 100000000)
+    uint16_t num = 0, den = 1;
+    bool digits = false, point = false;
+    for (; i < len; i++) {
+        char c = t[i];
+        if (c == '.' && !point) {
+            point = true;
+            continue;
+        }
+        if (!is_digit(c) || num > 3275 || den > 3275)
             return false;
-    }
-    if (i < len && t[i] == '.') {
-        i++;
-        while (i < len && is_digit(t[i])) {
-            num = num * 10 + (t[i++] - '0');
+        num = num * 10 + (uint8_t)(c - '0');
+        if (point)
             den *= 10;
-            digits = true;
-            if (num > 100000000 || den > 100000000)
-                return false;
-        }
+        digits = true;
     }
-    if (!digits)
+    if (!digits || num > 32767)
         return false;
-    if (i < len && (t[i] == 'e' || t[i] == 'E')) {
-        i++;
-        bool eneg = false;
-        if (i < len && (t[i] == '-' || t[i] == '+'))
-            eneg = t[i++] == '-';
-        if (i >= len || !is_digit(t[i]))
-            return false;
-        uint8_t ex = 0;
-        while (i < len && is_digit(t[i]))
-            ex = ex * 10 + (t[i++] - '0');
-        while (ex--) {
-            if (eneg)
-                den *= 10;
-            else
-                num *= 10;
-            if (num > 100000000 || den > 100000000)
-                return false;
-        }
-    }
-    if (i != len)
-        return false;
-    bool was = rat_overflow;
-    rat_overflow = false;
-    rat_set(out, neg ? -num : num, den);
-    bool bad = rat_overflow;
-    rat_overflow = was;
-    return !bad;
+    rat_set(out, neg ? -(int16_t)num : (int16_t)num, den);
+    return true;
 }
 
-/* The grammar's number: minus? int frac? exp? */
+/* The grammar's number: minus? int frac? */
 static bool number(rat_t *out)
 {
     uint16_t start = P;
@@ -138,13 +111,9 @@ static bool number(rat_t *out)
         while (is_digit(peek()))
             P++;
     }
-    if ((peek() == 'e' || peek() == 'E') &&
-        (is_digit(peek2()) || ((peek2() == '-' || peek2() == '+') && P + 2 < END && is_digit(S[P + 2])))) {
-        P += 2;
-        while (is_digit(peek()))
-            P++;
-    }
-    if (!mini_decimal(S + start, (uint8_t)(P - start), out)) {
+    char buf[24];
+    uint8_t n = text_copy(start, (uint8_t)(P - start), buf, sizeof buf);
+    if (P - start >= sizeof buf || !mini_decimal(buf, n, out)) {
         P = start;
         return false;
     }
@@ -341,12 +310,13 @@ static uint8_t slice(void)
     while (is_step_char(peek()))
         P++;
     uint8_t len = (uint8_t)(P - start);
-    if (len == 0 || (len == 1 && (S[start] == '.' || S[start] == '_'))) {
+    char first = text_at(start);
+    if (len == 0 || (len == 1 && (first == '.' || first == '_'))) {
         P = start;
         return PAT_NONE;
     }
     ws();
-    if (len == 1 && (S[start] == '~' || S[start] == '-'))
+    if (len == 1 && (first == '~' || first == '-'))
         return silence();
     uint8_t a = pat_new_atom();
     uint8_t n = pat_new_node(N_ATOM);
@@ -355,7 +325,9 @@ static uint8_t slice(void)
     pat_atom_t *at = &pat_atoms[a];
     at->pos = start;
     at->len = len;
-    at->is_num = mini_decimal(S + start, len, &at->num);
+    char buf[24];
+    uint8_t got = text_copy(start, len, buf, sizeof buf);
+    at->is_num = len < sizeof buf && mini_decimal(buf, got, &at->num);
     pat_nodes[n].kids = a;
     return n;
 }
@@ -581,7 +553,7 @@ static seq_t sequence(void)
     seq_t *els = &pstack[base];
     psp = base;
     if (n == 0) {
-        fail(peek() ? "unexpected character" : "expected a step");
+        fail(peek() ? "unexpected character" : "pattern ends too soon");
         return r;
     }
     if (n == 1) {
@@ -648,10 +620,9 @@ static uint8_t stack_or_choose(void)
     return fastc_int(cat, n);
 }
 
-uint8_t mini_parse(const char *src, uint16_t from, uint16_t to)
+uint8_t mini_parse(uint16_t from, uint16_t to)
 {
     psp = 0;
-    S = src;
     P = from;
     END = to;
     ws();

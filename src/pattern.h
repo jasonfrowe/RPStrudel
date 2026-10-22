@@ -12,10 +12,10 @@
  *
  * Plain C with no Picocomputer headers, so the host tests build it too. */
 
-#define PAT_NODES 160
+#define PAT_NODES 128
 #define PAT_KIDS 255
-#define PAT_ATOMS 120
-#define PAT_HAPS 128
+#define PAT_ATOMS 104
+#define PAT_HAPS 104
 #define PAT_NONE 0xFF
 
 enum {
@@ -48,9 +48,11 @@ typedef struct
 typedef struct
 {
     uint16_t pos; /* where the text is in the source */
-    uint8_t len;
+    uint8_t len;  /* 0 once edited away: no longer highlighted */
     bool is_num;
     rat_t num;
+    uint8_t patch; /* as a sound name, filled in by the player */
+    int8_t note;   /* as a note (name or number), or -1 */
 } pat_atom_t;
 
 /* The four times of a hap, as indexes into t[]. */

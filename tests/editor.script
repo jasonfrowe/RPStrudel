@@ -1,0 +1,112 @@
+# Editor test: type code, Ctrl+Enter, and check the screen. Ctrl+D writes
+# the screen's text to the console, where expect can find it. Run with:
+#   ./tools/rp6502-emu build/llvm-mos/release/RPStrudel.rp6502 --mute --script tests/editor.script
+
+run 60
+# to the empty last line of the demo
+key down
+key down
+key down
+key down
+key down
+key down
+key down
+key down
+key down
+
+# 1. a new pattern plays after Ctrl+Enter
+type "$: note(\"c5 e5 g5 c6\").s(\"gm_flute\")"
+run 30
+press 0xE0
+press 0x28
+run 3
+release 0x28
+release 0xE0
+run 120
+press 0xE0
+press 0x07
+run 2
+release 0x07
+release 0xE0
+run 60
+expect "c5 e5 g5 c6"
+expect "updated"
+expect "flute"
+expect-not "error"
+
+# 2. a mistake: nothing changes, the error shows, the old code plays on
+key enter
+type "$: s(\"bd [\")"
+run 30
+press 0xE0
+press 0x28
+run 3
+release 0x28
+release 0xE0
+run 30
+press 0xE0
+press 0x07
+run 2
+release 0x07
+release 0xE0
+run 60
+expect "not changed"
+expect "error: pattern ends too soon"
+expect "flute"
+
+# 3. fix it with editing keys: Backspace twice, then close the bracket
+key backspace
+key backspace
+type "]\")"
+run 30
+key left
+key left
+key left
+type "sd"
+run 30
+press 0xE0
+press 0x28
+run 3
+release 0x28
+release 0xE0
+run 120
+press 0xE0
+press 0x07
+run 2
+release 0x07
+release 0xE0
+run 60
+expect "$: s(\"bd [sd]\")"
+expect "updated"
+expect-not "error"
+
+# 4. an unknown sound is an error while playing
+key end
+type ".s(\"nosuch\")"
+run 30
+press 0xE0
+press 0x28
+run 3
+release 0x28
+release 0xE0
+run 150
+press 0xE0
+press 0x07
+run 2
+release 0x07
+release 0xE0
+run 60
+expect "error: unknown sound"
+
+# 5. Esc stops
+press escape
+run 3
+release escape
+run 10
+press 0xE0
+press 0x07
+run 2
+release 0x07
+release 0xE0
+run 60
+expect "STOPPED"

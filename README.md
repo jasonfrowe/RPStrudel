@@ -6,8 +6,9 @@ built-in OPL2. Written in C with [llvm-mos](https://llvm-mos.org/).
 
 ## Status
 
-Milestone 2: Strudel's pattern engine on the 6502. The program is fixed
-for now (in `src/main.c`); the editor comes in milestone 3.
+Milestone 3: a live coding editor. Edit the code, press Ctrl+Enter, and
+the change plays from the next cycle. If the new code has an error, the
+old code keeps playing and the error is marked in red.
 
 ```js
 setcpm(30)
@@ -30,7 +31,8 @@ and `/` (also with patterns, as `*<2 3>`), `!`, `@`, `_`, euclid `(3,8,2)`
 `sawtooth`, and Strudel's General MIDI names (`gm_piano`,
 `gm_synth_bass_1`, ...), from RPTracker's OPL2 patches.
 
-Each playing token lights up in the code, as in Strudel.
+Each playing token lights up in the code, as in Strudel, and the
+highlights follow the text as you edit.
 
 ### How it matches Strudel
 
@@ -47,19 +49,28 @@ gives the same events for 78 mini-notation cases and 19 program cases.
   the numbers stay small however long it plays.
 - Notes for each part of a pattern's period are cached, so after the
   first time through, a cycle takes ~30 ms instead of ~400 ms.
-- Patches and sound names live in XRAM (`tools/patches.py` makes them).
-- Built with `-Oz`: the code is ~45K, and RAM is the limit.
+- Patches and sound names, the code text (an 8K gap buffer), the
+  playing program's backup during a parse, and the note cache all live in
+  XRAM.
+- Built with `-Oz`: the code is ~50K, and RAM is the limit.
 
-The screen shows the timer rate, the time to work out each cycle, and how
-much of the stack was never used.
+The screen shows the timer rate, the time to work out each cycle, how
+much of the stack was never used, and how many cycles were late (played
+again because the next one wasn't ready).
 
 ## Controls
 
 | Key | Action |
 |---|---|
-| Space | Play / stop |
-| `-` / `=` | Tempo down / up, in cycles per minute |
-| Esc | Hush |
+| Ctrl+Enter (or Alt+Enter) | Play, or update to the edited code |
+| Ctrl+. (or Alt+.), Esc | Stop |
+| Arrows, Home, End, PgUp, PgDn | Move |
+| Backspace, Delete, Tab, Enter | Edit (Enter keeps the indent) |
+| Ctrl+D | Write the screen's text to the console (for test scripts) |
+
+Typing comes from the console, so the keyboard layout and key repeat are
+the firmware's. The timer interrupt watches the shortcut keys, so a press
+isn't missed while a cycle is being worked out.
 
 ## Build
 
@@ -74,7 +85,15 @@ cmake --build --preset llvm-mos/Release
 ```sh
 make -C tests/host        # pattern engine vs Strudel, on the Mac
 ./tools/rp6502-emu build/llvm-mos/release/RPStrudel.rp6502 --mute --script tests/smoke.script
+./tools/rp6502-emu build/llvm-mos/release/RPStrudel.rp6502 --mute --script tests/editor.script
+./tools/rp6502-emu build/llvm-mos/release/RPStrudel.rp6502 --mute --script tests/keys.script
 ```
+
+`tests/editor.script` types code, presses Ctrl+Enter, and checks the
+screen through Ctrl+D: an update, a mistake that leaves the old code
+playing, a fix with the editing keys, an unknown sound, and Esc.
+`tests/keys.script` sends arrow sequences split across frames (as real
+hardware can) and holds an arrow key down, checking that no cycle is late.
 
 To add a case, put it in `tests/mini_cases.txt` or `tests/prog_cases.txt`
 and remake the expected results with Strudel:
@@ -96,7 +115,9 @@ cd tests/ref && npm install && node --import ./stub.mjs gen.mjs
 | `src/opl.c` | OPL2 registers (XRAM portal 1, interrupt only) |
 | `src/patches.c` | Patches and sound names in XRAM |
 | `src/screen.c` | Mode 1 text drawing (XRAM portal 0) |
-| `src/main.c` | Screen layout, keys, main loop |
+| `src/editbuf.c` | The code text: a gap buffer in XRAM |
+| `src/editor.c` | Editing keys, scrolling, drawing with colours |
+| `src/main.c` | Screen layout, Ctrl+Enter, highlights, main loop |
 | `tools/patches.py` | The OPL2 patch bank and sound names |
 | `tests/host` | Host tests and a benchmark of fraction operations |
 | `tests/ref` | Runs Strudel to make the expected results |

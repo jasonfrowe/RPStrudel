@@ -93,13 +93,21 @@ typedef struct
     mode1_config_t text_config;
     text_cell_t text[TEXT_ROWS][TEXT_COLS];
     uint8_t patches[3584]; /* PATCH_XRAM_SIZE: patches and names (patches.h) */
+    uint8_t edit[8192];    /* EDIT_CAP: the program text, a gap buffer (editbuf.h) */
+    uint8_t backup[4096];  /* the playing program while a new one is parsed (player.c) */
+    uint8_t cache[5632];   /* CACHE_XRAM_SIZE: notes worked out already (player.c) */
 } xram_layout_t;
+
+#define CACHE_XRAM_SIZE 5632
 
 #define XRAM_OPL offsetof(xram_layout_t, opl)
 #define XRAM_KEYBOARD offsetof(xram_layout_t, keyboard)
 #define XRAM_TEXT_CONFIG offsetof(xram_layout_t, text_config)
 #define XRAM_TEXT offsetof(xram_layout_t, text)
 #define XRAM_PATCHES offsetof(xram_layout_t, patches)
+#define XRAM_EDIT offsetof(xram_layout_t, edit)
+#define XRAM_BACKUP offsetof(xram_layout_t, backup)
+#define XRAM_CACHE offsetof(xram_layout_t, cache)
 
 _Static_assert((XRAM_OPL & 0xFF) == 0, "The OPL2 registers must start on a page boundary.");
 

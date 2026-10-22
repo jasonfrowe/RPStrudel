@@ -1,6 +1,6 @@
 RPSTRUDEL
 Strudel-style live coding for the Picocomputer's OPL2.
 
-SPACE  play / stop
-- =    tempo down / up (cycles per minute)
-ESC    hush
+Ctrl+Enter     play / update (the change starts next cycle)
+Ctrl+. or Esc  stop
+Arrows, Home, End, PgUp, PgDn, Backspace, Delete, Tab: edit

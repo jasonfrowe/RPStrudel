@@ -42,4 +42,6 @@ target_sources(RPStrudel PRIVATE
     src/mini.c
     src/prog.c
     src/player.c
+    src/editbuf.c
+    src/editor.c
 )

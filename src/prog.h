@@ -28,11 +28,11 @@ extern uint8_t prog_pattern_count;
 extern int16_t prog_cpm10; /* tempo set by the program, or -1 */
 extern uint16_t prog_error_pos;
 
-/* Parses the whole program into pattern nodes (after pat_reset). Returns
- * false with pat_error and prog_error_pos set. */
-bool prog_parse(const char *src, uint16_t len);
+/* Parses the program text (text.h, 0..len) into pattern nodes (after
+ * pat_reset). Returns false with pat_error and prog_error_pos set. */
+bool prog_parse(uint16_t len);
 
 /* One expression, for the host tests. */
-uint8_t prog_parse_expr(const char *src, uint16_t from, uint16_t to);
+uint8_t prog_parse_expr(uint16_t from, uint16_t to);
 
 #endif

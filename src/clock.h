@@ -14,7 +14,7 @@
  * plays again. */
 
 #define CLOCK_HZ 1000u
-#define EV_MAX 96
+#define EV_MAX 80
 
 /* Event kinds: the high bit is note-on, the low nibble the voice. */
 #define EV_ON 0x80
@@ -57,8 +57,15 @@ bool clock_running(void);
 /* Call from the main loop: fills the free buffer when it needs it. */
 void clock_service(void);
 
+/* Throws away the next cycle if it is already filled, so clock_service
+ * fills it again (with a new program). True if one was thrown away. */
+bool clock_refill(void);
+
 /* Where the music is now. */
 void clock_position(uint16_t *cycle, uint16_t *pos);
+
+/* Cycles that played again because the next was not worked out in time. */
+uint16_t clock_late(void);
 
 /* Milliseconds since clock_init, for checking the timer rate. */
 uint16_t clock_ms(void);
@@ -68,5 +75,16 @@ uint8_t clock_next_hit(void);
 
 /* Voices keyed on since the last call, one bit each. */
 uint16_t clock_take_voice_hits(void);
+
+/* The shortcut keys, watched by the interrupt (125 times a second) so a
+ * press is not missed while the main loop is busy working out a cycle. */
+#define CLOCK_KEY_EVAL 0x01 /* Ctrl or Alt + Enter */
+#define CLOCK_KEY_STOP 0x02 /* Ctrl or Alt + period, or Escape */
+#define CLOCK_KEY_DUMP 0x04 /* Ctrl + D */
+uint8_t clock_take_keys(void);
+
+/* How many Ctrl+Enter presses there were: each also typed an Enter that
+ * the editor must not see. */
+uint8_t clock_take_ctrl_enters(void);
 
 #endif
