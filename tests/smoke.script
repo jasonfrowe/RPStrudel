@@ -3,10 +3,11 @@
 #   ./tools/rp6502-emu build/llvm-mos/release/RPStrudel.rp6502 --mute --script tests/smoke.script
 
 run 100
-# Voices go out in time order: 1 bd, 2 hh (drums at C4: block 4, F-number
-# 345), 3 synth bass, 4 epiano, 5 sd.
-peek xram:0xB0 0x31 0x31
-peek xram:0xA0 0x59 0x59
+# Voices go out in time order: 1 bd, 2 synth bass, 3 and 4 epiano, 5 hh,
+# 6 sd. Drums play at C4 (block 4, F-number 345).
+peek xram:0xB0 0x31
+peek xram:0xA0 0x59
+peek xram:0xB4 0x31
 # waveform select on
 peek xram:0x01 0x20
 
@@ -15,7 +16,8 @@ press escape
 run 3
 release escape
 run 10
-peek xram:0xB0 0x11 0x11
+peek xram:0xB0 0x11
+peek xram:0xB4 0x11
 
 # Ctrl+Enter starts again from cycle 0
 press 0xE0
@@ -23,5 +25,5 @@ press 0x28
 run 3
 release 0x28
 release 0xE0
-run 40
-peek xram:0xB0 0x31 0x31
+run 90
+peek xram:0xB0 0x31

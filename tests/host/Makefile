@@ -5,13 +5,14 @@
 
 ROOT := ../..
 CFLAGS := -std=c11 -Wall -Wextra -O1 -g -fsanitize=address,undefined -I$(ROOT)/src
-SRC := $(ROOT)/src/rat.c $(ROOT)/src/pattern.c $(ROOT)/src/mini.c $(ROOT)/src/prog.c
+SRC := $(ROOT)/src/rat.c $(ROOT)/src/pool.c $(ROOT)/src/pattern.c $(ROOT)/src/query.c $(ROOT)/src/period.c $(ROOT)/src/scales.c $(ROOT)/src/mini.c $(ROOT)/src/prog.c
 
 test: test_mini
 	cd $(ROOT) && tests/host/test_mini mini tests/mini_cases.txt > tests/host/mini_actual.txt; \
 	  diff -u tests/mini_expected.txt tests/host/mini_actual.txt && echo "mini: all cases match Strudel"
 	cd $(ROOT) && tests/host/test_mini prog tests/prog_cases.txt > tests/host/prog_actual.txt; \
 	  diff -u tests/prog_expected.txt tests/host/prog_actual.txt && echo "prog: all cases match Strudel"
+	cd $(ROOT) && tests/host/test_mini random tests/random_cases.txt
 
 test_mini: test_mini.c $(SRC) $(wildcard $(ROOT)/src/*.h)
 	$(CC) $(CFLAGS) -o $@ test_mini.c $(SRC)

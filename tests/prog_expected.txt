@@ -17,44 +17,44 @@
 3 3 7/2 s=bd n=2
 3 7/2 4 s=sd n=1
 = note("c e g")
-0 0 1/3 note=c
-0 1/3 2/3 note=e
-0 2/3 1 note=g
-1 1 4/3 note=c
-1 4/3 5/3 note=e
-1 5/3 2 note=g
-2 2 7/3 note=c
-2 7/3 8/3 note=e
-2 8/3 3 note=g
-3 3 10/3 note=c
-3 10/3 11/3 note=e
-3 11/3 4 note=g
+0 0 1/3 note=48
+0 1/3 2/3 note=52
+0 2/3 1 note=55
+1 1 4/3 note=48
+1 4/3 5/3 note=52
+1 5/3 2 note=55
+2 2 7/3 note=48
+2 7/3 8/3 note=52
+2 8/3 3 note=55
+3 3 10/3 note=48
+3 10/3 11/3 note=52
+3 11/3 4 note=55
 = note("c e").s("piano")
-0 0 1/2 s=piano note=c
-0 1/2 1 s=piano note=e
-1 1 3/2 s=piano note=c
-1 3/2 2 s=piano note=e
-2 2 5/2 s=piano note=c
-2 5/2 3 s=piano note=e
-3 3 7/2 s=piano note=c
-3 7/2 4 s=piano note=e
+0 0 1/2 s=piano note=48
+0 1/2 1 s=piano note=52
+1 1 3/2 s=piano note=48
+1 3/2 2 s=piano note=52
+2 2 5/2 s=piano note=48
+2 5/2 3 s=piano note=52
+3 3 7/2 s=piano note=48
+3 7/2 4 s=piano note=52
 = note("c e g a").s("<piano bass>")
-0 0 1/4 s=piano note=c
-0 1/4 1/2 s=piano note=e
-0 1/2 3/4 s=piano note=g
-0 3/4 1 s=piano note=a
-1 1 5/4 s=bass note=c
-1 5/4 3/2 s=bass note=e
-1 3/2 7/4 s=bass note=g
-1 7/4 2 s=bass note=a
-2 2 9/4 s=piano note=c
-2 9/4 5/2 s=piano note=e
-2 5/2 11/4 s=piano note=g
-2 11/4 3 s=piano note=a
-3 3 13/4 s=bass note=c
-3 13/4 7/2 s=bass note=e
-3 7/2 15/4 s=bass note=g
-3 15/4 4 s=bass note=a
+0 0 1/4 s=piano note=48
+0 1/4 1/2 s=piano note=52
+0 1/2 3/4 s=piano note=55
+0 3/4 1 s=piano note=57
+1 1 5/4 s=bass note=48
+1 5/4 3/2 s=bass note=52
+1 3/2 7/4 s=bass note=55
+1 7/4 2 s=bass note=57
+2 2 9/4 s=piano note=48
+2 9/4 5/2 s=piano note=52
+2 5/2 11/4 s=piano note=55
+2 11/4 3 s=piano note=57
+3 3 13/4 s=bass note=48
+3 13/4 7/2 s=bass note=52
+3 7/2 15/4 s=bass note=55
+3 15/4 4 s=bass note=57
 = s("bd*4").gain("1 .5")
 0 0 1/4 s=bd gain=1
 0 1/4 1/2 s=bd gain=1
@@ -73,44 +73,44 @@
 3 7/2 15/4 s=bd gain=0.5
 3 15/4 4 s=bd gain=0.5
 = note("<c a>(3,8)").s("sine").gain(.8)
-0 0 1/8 s=sine note=c gain=0.8
-0 3/8 1/2 s=sine note=c gain=0.8
-0 3/4 7/8 s=sine note=c gain=0.8
-1 1 9/8 s=sine note=a gain=0.8
-1 11/8 3/2 s=sine note=a gain=0.8
-1 7/4 15/8 s=sine note=a gain=0.8
-2 2 17/8 s=sine note=c gain=0.8
-2 19/8 5/2 s=sine note=c gain=0.8
-2 11/4 23/8 s=sine note=c gain=0.8
-3 3 25/8 s=sine note=a gain=0.8
-3 27/8 7/2 s=sine note=a gain=0.8
-3 15/4 31/8 s=sine note=a gain=0.8
+0 0 1/8 s=sine note=48 gain=0.796875
+0 3/8 1/2 s=sine note=48 gain=0.796875
+0 3/4 7/8 s=sine note=48 gain=0.796875
+1 1 9/8 s=sine note=57 gain=0.796875
+1 11/8 3/2 s=sine note=57 gain=0.796875
+1 7/4 15/8 s=sine note=57 gain=0.796875
+2 2 17/8 s=sine note=48 gain=0.796875
+2 19/8 5/2 s=sine note=48 gain=0.796875
+2 11/4 23/8 s=sine note=48 gain=0.796875
+3 3 25/8 s=sine note=57 gain=0.796875
+3 27/8 7/2 s=sine note=57 gain=0.796875
+3 15/4 31/8 s=sine note=57 gain=0.796875
 = s("bd sd").note("c [e g]")
-0 0 1/2 s=bd note=c
-0 1/2 1 s=sd note=e
-1 1 3/2 s=bd note=c
-1 3/2 2 s=sd note=e
-2 2 5/2 s=bd note=c
-2 5/2 3 s=sd note=e
-3 3 7/2 s=bd note=c
-3 7/2 4 s=sd note=e
+0 0 1/2 s=bd note=48
+0 1/2 1 s=sd note=52
+1 1 3/2 s=bd note=48
+1 3/2 2 s=sd note=52
+2 2 5/2 s=bd note=48
+2 5/2 3 s=sd note=52
+3 3 7/2 s=bd note=48
+3 7/2 4 s=sd note=52
 = note("c*4").s("bd sd")
-0 0 1/4 s=bd note=c
-0 1/4 1/2 s=bd note=c
-0 1/2 3/4 s=sd note=c
-0 3/4 1 s=sd note=c
-1 1 5/4 s=bd note=c
-1 5/4 3/2 s=bd note=c
-1 3/2 7/4 s=sd note=c
-1 7/4 2 s=sd note=c
-2 2 9/4 s=bd note=c
-2 9/4 5/2 s=bd note=c
-2 5/2 11/4 s=sd note=c
-2 11/4 3 s=sd note=c
-3 3 13/4 s=bd note=c
-3 13/4 7/2 s=bd note=c
-3 7/2 15/4 s=sd note=c
-3 15/4 4 s=sd note=c
+0 0 1/4 s=bd note=48
+0 1/4 1/2 s=bd note=48
+0 1/2 3/4 s=sd note=48
+0 3/4 1 s=sd note=48
+1 1 5/4 s=bd note=48
+1 5/4 3/2 s=bd note=48
+1 3/2 7/4 s=sd note=48
+1 7/4 2 s=sd note=48
+2 2 9/4 s=bd note=48
+2 9/4 5/2 s=bd note=48
+2 5/2 11/4 s=sd note=48
+2 11/4 3 s=sd note=48
+3 3 13/4 s=bd note=48
+3 13/4 7/2 s=bd note=48
+3 7/2 15/4 s=sd note=48
+3 15/4 4 s=sd note=48
 = s("hh*8").fast(2)
 0 0 1/16 s=hh
 0 1/16 1/8 s=hh
@@ -182,74 +182,74 @@
 2 2 3 s=bd
 3 3 4 s=sd
 = note("c e").fast("<1 2>")
-0 0 1/2 note=c
-0 1/2 1 note=e
-1 1 5/4 note=c
-1 5/4 3/2 note=e
-1 3/2 7/4 note=c
-1 7/4 2 note=e
-2 2 5/2 note=c
-2 5/2 3 note=e
-3 3 13/4 note=c
-3 13/4 7/2 note=e
-3 7/2 15/4 note=c
-3 15/4 4 note=e
+0 0 1/2 note=48
+0 1/2 1 note=52
+1 1 5/4 note=48
+1 5/4 3/2 note=52
+1 3/2 7/4 note=48
+1 7/4 2 note=52
+2 2 5/2 note=48
+2 5/2 3 note=52
+3 3 13/4 note=48
+3 13/4 7/2 note=52
+3 7/2 15/4 note=48
+3 15/4 4 note=52
 = note("c e").s("x").fast(2)
-0 0 1/4 s=x note=c
-0 1/4 1/2 s=x note=e
-0 1/2 3/4 s=x note=c
-0 3/4 1 s=x note=e
-1 1 5/4 s=x note=c
-1 5/4 3/2 s=x note=e
-1 3/2 7/4 s=x note=c
-1 7/4 2 s=x note=e
-2 2 9/4 s=x note=c
-2 9/4 5/2 s=x note=e
-2 5/2 11/4 s=x note=c
-2 11/4 3 s=x note=e
-3 3 13/4 s=x note=c
-3 13/4 7/2 s=x note=e
-3 7/2 15/4 s=x note=c
-3 15/4 4 s=x note=e
+0 0 1/4 s=x note=48
+0 1/4 1/2 s=x note=52
+0 1/2 3/4 s=x note=48
+0 3/4 1 s=x note=52
+1 1 5/4 s=x note=48
+1 5/4 3/2 s=x note=52
+1 3/2 7/4 s=x note=48
+1 7/4 2 s=x note=52
+2 2 9/4 s=x note=48
+2 9/4 5/2 s=x note=52
+2 5/2 11/4 s=x note=48
+2 11/4 3 s=x note=52
+3 3 13/4 s=x note=48
+3 13/4 7/2 s=x note=52
+3 7/2 15/4 s=x note=48
+3 15/4 4 s=x note=52
 = note("c e").fast(2).s("x y z")
-0 0 1/4 s=x note=c
-0 1/4 1/2 s=x note=e
-0 1/2 3/4 s=y note=c
-0 3/4 1 s=z note=e
-1 1 5/4 s=x note=c
-1 5/4 3/2 s=x note=e
-1 3/2 7/4 s=y note=c
-1 7/4 2 s=z note=e
-2 2 9/4 s=x note=c
-2 9/4 5/2 s=x note=e
-2 5/2 11/4 s=y note=c
-2 11/4 3 s=z note=e
-3 3 13/4 s=x note=c
-3 13/4 7/2 s=x note=e
-3 7/2 15/4 s=y note=c
-3 15/4 4 s=z note=e
+0 0 1/4 s=x note=48
+0 1/4 1/2 s=x note=52
+0 1/2 3/4 s=y note=48
+0 3/4 1 s=z note=52
+1 1 5/4 s=x note=48
+1 5/4 3/2 s=x note=52
+1 3/2 7/4 s=y note=48
+1 7/4 2 s=z note=52
+2 2 9/4 s=x note=48
+2 9/4 5/2 s=x note=52
+2 5/2 11/4 s=y note=48
+2 11/4 3 s=z note=52
+3 3 13/4 s=x note=48
+3 13/4 7/2 s=x note=52
+3 7/2 15/4 s=y note=48
+3 15/4 4 s=z note=52
 = "c e g".note()
-0 0 1/3 note=c
-0 1/3 2/3 note=e
-0 2/3 1 note=g
-1 1 4/3 note=c
-1 4/3 5/3 note=e
-1 5/3 2 note=g
-2 2 7/3 note=c
-2 7/3 8/3 note=e
-2 8/3 3 note=g
-3 3 10/3 note=c
-3 10/3 11/3 note=e
-3 11/3 4 note=g
+0 0 1/3 note=48
+0 1/3 2/3 note=52
+0 2/3 1 note=55
+1 1 4/3 note=48
+1 4/3 5/3 note=52
+1 5/3 2 note=55
+2 2 7/3 note=48
+2 7/3 8/3 note=52
+2 8/3 3 note=55
+3 3 10/3 note=48
+3 10/3 11/3 note=52
+3 11/3 4 note=55
 = "<c e>*2".note().s("tri")
-0 0 1/2 s=tri note=c
-0 1/2 1 s=tri note=e
-1 1 3/2 s=tri note=c
-1 3/2 2 s=tri note=e
-2 2 5/2 s=tri note=c
-2 5/2 3 s=tri note=e
-3 3 7/2 s=tri note=c
-3 7/2 4 s=tri note=e
+0 0 1/2 s=tri note=48
+0 1/2 1 s=tri note=52
+1 1 3/2 s=tri note=48
+1 3/2 2 s=tri note=52
+2 2 5/2 s=tri note=48
+2 5/2 3 s=tri note=52
+3 3 7/2 s=tri note=48
+3 7/2 4 s=tri note=52
 = n("0 2 4").s("piano")
 0 0 1/3 s=piano n=0
 0 1/3 2/3 s=piano n=2
@@ -273,3 +273,573 @@
 1 1 2 s=bd n=2
 2 2 3 s=bd n=3
 3 3 4 s=bd n=1
+= n("0 2 4 7").scale("C:major")
+0 0 1/4 note=48
+0 1/4 1/2 note=52
+0 1/2 3/4 note=55
+0 3/4 1 note=60
+1 1 5/4 note=48
+1 5/4 3/2 note=52
+1 3/2 7/4 note=55
+1 7/4 2 note=60
+2 2 9/4 note=48
+2 9/4 5/2 note=52
+2 5/2 11/4 note=55
+2 11/4 3 note=60
+3 3 13/4 note=48
+3 13/4 7/2 note=52
+3 7/2 15/4 note=55
+3 15/4 4 note=60
+= n("0 2 -1").scale("C4:minor")
+0 0 1/3 note=60
+0 1/3 2/3 note=63
+0 2/3 1 note=58
+1 1 4/3 note=60
+1 4/3 5/3 note=63
+1 5/3 2 note=58
+2 2 7/3 note=60
+2 7/3 8/3 note=63
+2 8/3 3 note=58
+3 3 10/3 note=60
+3 10/3 11/3 note=63
+3 11/3 4 note=58
+= n("0 1 2 3 4 5").scale("A:minor:pentatonic")
+0 0 1/6 note=57
+0 1/6 1/3 note=60
+0 1/3 1/2 note=62
+0 1/2 2/3 note=64
+0 2/3 5/6 note=67
+0 5/6 1 note=69
+1 1 7/6 note=57
+1 7/6 4/3 note=60
+1 4/3 3/2 note=62
+1 3/2 5/3 note=64
+1 5/3 11/6 note=67
+1 11/6 2 note=69
+2 2 13/6 note=57
+2 13/6 7/3 note=60
+2 7/3 5/2 note=62
+2 5/2 8/3 note=64
+2 8/3 17/6 note=67
+2 17/6 3 note=69
+3 3 19/6 note=57
+3 19/6 10/3 note=60
+3 10/3 7/2 note=62
+3 7/2 11/3 note=64
+3 11/3 23/6 note=67
+3 23/6 4 note=69
+= n("<0 2> 4").scale("<C:major D:dorian>")
+0 0 1/2 note=48
+0 1/2 1 note=55
+1 1 3/2 note=53
+1 3/2 2 note=57
+2 2 5/2 note=48
+2 5/2 3 note=55
+3 3 7/2 note=53
+3 7/2 4 note=57
+= n("0 1 2 3 4 5 6 7").scale("E:phrygian")
+0 0 1/8 note=52
+0 1/8 1/4 note=53
+0 1/4 3/8 note=55
+0 3/8 1/2 note=57
+0 1/2 5/8 note=59
+0 5/8 3/4 note=60
+0 3/4 7/8 note=62
+0 7/8 1 note=64
+1 1 9/8 note=52
+1 9/8 5/4 note=53
+1 5/4 11/8 note=55
+1 11/8 3/2 note=57
+1 3/2 13/8 note=59
+1 13/8 7/4 note=60
+1 7/4 15/8 note=62
+1 15/8 2 note=64
+2 2 17/8 note=52
+2 17/8 9/4 note=53
+2 9/4 19/8 note=55
+2 19/8 5/2 note=57
+2 5/2 21/8 note=59
+2 21/8 11/4 note=60
+2 11/4 23/8 note=62
+2 23/8 3 note=64
+3 3 25/8 note=52
+3 25/8 13/4 note=53
+3 13/4 27/8 note=55
+3 27/8 7/2 note=57
+3 7/2 29/8 note=59
+3 29/8 15/4 note=60
+3 15/4 31/8 note=62
+3 31/8 4 note=64
+= "0 2 4".scale("C:major").note()
+0 0 1/3 note=48
+0 1/3 2/3 note=52
+0 2/3 1 note=55
+1 1 4/3 note=48
+1 4/3 5/3 note=52
+1 5/3 2 note=55
+2 2 7/3 note=48
+2 7/3 8/3 note=52
+2 8/3 3 note=55
+3 3 10/3 note=48
+3 10/3 11/3 note=52
+3 11/3 4 note=55
+= n("0 2".add(1)).scale("C:major")
+0 0 1/2 note=50
+0 1/2 1 note=53
+1 1 3/2 note=50
+1 3/2 2 note=53
+2 2 5/2 note=50
+2 5/2 3 note=53
+3 3 7/2 note=50
+3 7/2 4 note=53
+= n("0 2").scale("C:major").add(note(12))
+0 0 1/2 note=60
+0 1/2 1 note=64
+1 1 3/2 note=60
+1 3/2 2 note=64
+2 2 5/2 note=60
+2 5/2 3 note=64
+3 3 7/2 note=60
+3 7/2 4 note=64
+= note("c e").add(note("<0 7>"))
+0 0 1/2 note=48
+0 1/2 1 note=52
+1 1 3/2 note=55
+1 3/2 2 note=59
+2 2 5/2 note=48
+2 5/2 3 note=52
+3 3 7/2 note=55
+3 7/2 4 note=59
+= note("c e g").sub(note(12))
+0 0 1/3 note=36
+0 1/3 2/3 note=40
+0 2/3 1 note=43
+1 1 4/3 note=36
+1 4/3 5/3 note=40
+1 5/3 2 note=43
+2 2 7/3 note=36
+2 7/3 8/3 note=40
+2 8/3 3 note=43
+3 3 10/3 note=36
+3 10/3 11/3 note=40
+3 11/3 4 note=43
+= "0 2".add("<10 20>").note()
+0 0 1/2 note=10
+0 1/2 1 note=12
+1 1 3/2 note=20
+1 3/2 2 note=22
+2 2 5/2 note=10
+2 5/2 3 note=12
+3 3 7/2 note=20
+3 7/2 4 note=22
+= "c e".add(12).note()
+0 0 1/2 note=60
+0 1/2 1 note=64
+1 1 3/2 note=60
+1 3/2 2 note=64
+2 2 5/2 note=60
+2 5/2 3 note=64
+3 3 7/2 note=60
+3 7/2 4 note=64
+= n("0 2 4").add(n("<0 1>")).s("piano")
+0 0 1/3 s=piano n=0
+0 1/3 2/3 s=piano n=2
+0 2/3 1 s=piano n=4
+1 1 4/3 s=piano n=1
+1 4/3 5/3 s=piano n=3
+1 5/3 2 s=piano n=5
+2 2 7/3 s=piano n=0
+2 7/3 8/3 s=piano n=2
+2 8/3 3 s=piano n=4
+3 3 10/3 s=piano n=1
+3 10/3 11/3 s=piano n=3
+3 11/3 4 s=piano n=5
+= s("a b c").rev()
+0 0 1/3 s=c
+0 1/3 2/3 s=b
+0 2/3 1 s=a
+1 1 4/3 s=c
+1 4/3 5/3 s=b
+1 5/3 2 s=a
+2 2 7/3 s=c
+2 7/3 8/3 s=b
+2 8/3 3 s=a
+3 3 10/3 s=c
+3 10/3 11/3 s=b
+3 11/3 4 s=a
+= s("a [b c]").rev()
+0 0 1/4 s=c
+0 1/4 1/2 s=b
+0 1/2 1 s=a
+1 1 5/4 s=c
+1 5/4 3/2 s=b
+1 3/2 2 s=a
+2 2 9/4 s=c
+2 9/4 5/2 s=b
+2 5/2 3 s=a
+3 3 13/4 s=c
+3 13/4 7/2 s=b
+3 7/2 4 s=a
+= note("<c e> g").rev()
+0 0 1/2 note=55
+0 1/2 1 note=48
+1 1 3/2 note=55
+1 3/2 2 note=52
+2 2 5/2 note=55
+2 5/2 3 note=48
+3 3 7/2 note=55
+3 7/2 4 note=52
+= s("a b").ply(2)
+0 0 1/4 s=a
+0 1/4 1/2 s=a
+0 1/2 3/4 s=b
+0 3/4 1 s=b
+1 1 5/4 s=a
+1 5/4 3/2 s=a
+1 3/2 7/4 s=b
+1 7/4 2 s=b
+2 2 9/4 s=a
+2 9/4 5/2 s=a
+2 5/2 11/4 s=b
+2 11/4 3 s=b
+3 3 13/4 s=a
+3 13/4 7/2 s=a
+3 7/2 15/4 s=b
+3 15/4 4 s=b
+= s("a [b c]").ply("3")
+0 0 1/6 s=a
+0 1/6 1/3 s=a
+0 1/3 1/2 s=a
+0 1/2 7/12 s=b
+0 7/12 2/3 s=b
+0 2/3 3/4 s=b
+0 3/4 5/6 s=c
+0 5/6 11/12 s=c
+0 11/12 1 s=c
+1 1 7/6 s=a
+1 7/6 4/3 s=a
+1 4/3 3/2 s=a
+1 3/2 19/12 s=b
+1 19/12 5/3 s=b
+1 5/3 7/4 s=b
+1 7/4 11/6 s=c
+1 11/6 23/12 s=c
+1 23/12 2 s=c
+2 2 13/6 s=a
+2 13/6 7/3 s=a
+2 7/3 5/2 s=a
+2 5/2 31/12 s=b
+2 31/12 8/3 s=b
+2 8/3 11/4 s=b
+2 11/4 17/6 s=c
+2 17/6 35/12 s=c
+2 35/12 3 s=c
+3 3 19/6 s=a
+3 19/6 10/3 s=a
+3 10/3 7/2 s=a
+3 7/2 43/12 s=b
+3 43/12 11/3 s=b
+3 11/3 15/4 s=b
+3 15/4 23/6 s=c
+3 23/6 47/12 s=c
+3 47/12 4 s=c
+= s("a b").late(0.25)
+0 1/4 3/4 s=a
+0 3/4 5/4 s=b
+1 5/4 7/4 s=a
+1 7/4 9/4 s=b
+2 9/4 11/4 s=a
+2 11/4 13/4 s=b
+3 13/4 15/4 s=a
+3 15/4 17/4 s=b
+= s("a b").early(0.25)
+0 1/4 3/4 s=b
+0 3/4 5/4 s=a
+1 5/4 7/4 s=b
+1 7/4 9/4 s=a
+2 9/4 11/4 s=b
+2 11/4 13/4 s=a
+3 13/4 15/4 s=b
+3 15/4 17/4 s=a
+= s("a b c d").late("0.125")
+0 1/8 3/8 s=a
+0 3/8 5/8 s=b
+0 5/8 7/8 s=c
+0 7/8 9/8 s=d
+1 9/8 11/8 s=a
+1 11/8 13/8 s=b
+1 13/8 15/8 s=c
+1 15/8 17/8 s=d
+2 17/8 19/8 s=a
+2 19/8 21/8 s=b
+2 21/8 23/8 s=c
+2 23/8 25/8 s=d
+3 25/8 27/8 s=a
+3 27/8 29/8 s=b
+3 29/8 31/8 s=c
+3 31/8 33/8 s=d
+= s("a b").every(2, x => x.fast(2))
+0 0 1/4 s=a
+0 1/4 1/2 s=b
+0 1/2 3/4 s=a
+0 3/4 1 s=b
+1 1 3/2 s=a
+1 3/2 2 s=b
+2 2 9/4 s=a
+2 9/4 5/2 s=b
+2 5/2 11/4 s=a
+2 11/4 3 s=b
+3 3 7/2 s=a
+3 7/2 4 s=b
+= s("a b").firstOf(3, x => x.rev())
+0 0 1/2 s=b
+0 1/2 1 s=a
+1 1 3/2 s=a
+1 3/2 2 s=b
+2 2 5/2 s=a
+2 5/2 3 s=b
+3 3 7/2 s=b
+3 7/2 4 s=a
+= s("a b").lastOf(3, rev)
+0 0 1/2 s=a
+0 1/2 1 s=b
+1 1 3/2 s=a
+1 3/2 2 s=b
+2 2 5/2 s=b
+2 5/2 3 s=a
+3 3 7/2 s=a
+3 7/2 4 s=b
+= s("a b").every(2, fast(2))
+0 0 1/4 s=a
+0 1/4 1/2 s=b
+0 1/2 3/4 s=a
+0 3/4 1 s=b
+1 1 3/2 s=a
+1 3/2 2 s=b
+2 2 9/4 s=a
+2 9/4 5/2 s=b
+2 5/2 11/4 s=a
+2 11/4 3 s=b
+3 3 7/2 s=a
+3 7/2 4 s=b
+= s("a").echo(3, 0.25, 0.5)
+0 0 1 s=a gain=1
+0 1/4 5/4 s=a gain=0.5
+0 1/2 3/2 s=a gain=0.25
+1 1 2 s=a gain=1
+1 5/4 9/4 s=a gain=0.5
+1 3/2 5/2 s=a gain=0.25
+2 2 3 s=a gain=1
+2 9/4 13/4 s=a gain=0.5
+2 5/2 7/2 s=a gain=0.25
+3 3 4 s=a gain=1
+3 13/4 17/4 s=a gain=0.5
+3 7/2 9/2 s=a gain=0.25
+= note("c").off(0.25, x => x.add(note(12)))
+0 0 1 note=48
+0 1/4 5/4 note=60
+1 1 2 note=48
+1 5/4 9/4 note=60
+2 2 3 note=48
+2 9/4 13/4 note=60
+3 3 4 note=48
+3 13/4 17/4 note=60
+= note("c e").every(2, x => x.add(note(12))).rev()
+0 0 1/2 note=64
+0 1/2 1 note=60
+1 1 3/2 note=52
+1 3/2 2 note=48
+2 2 5/2 note=64
+2 5/2 3 note=60
+3 3 7/2 note=52
+3 7/2 4 note=48
+= s("a").struct("x ~ x x")
+0 0 1/4 s=a
+0 1/2 3/4 s=a
+0 3/4 1 s=a
+1 1 5/4 s=a
+1 3/2 7/4 s=a
+1 7/4 2 s=a
+2 2 9/4 s=a
+2 5/2 11/4 s=a
+2 11/4 3 s=a
+3 3 13/4 s=a
+3 7/2 15/4 s=a
+3 15/4 4 s=a
+= s("a b").struct("x*4")
+0 0 1/4 s=a
+0 1/4 1/2 s=a
+0 1/2 3/4 s=b
+0 3/4 1 s=b
+1 1 5/4 s=a
+1 5/4 3/2 s=a
+1 3/2 7/4 s=b
+1 7/4 2 s=b
+2 2 9/4 s=a
+2 9/4 5/2 s=a
+2 5/2 11/4 s=b
+2 11/4 3 s=b
+3 3 13/4 s=a
+3 13/4 7/2 s=a
+3 7/2 15/4 s=b
+3 15/4 4 s=b
+= s("a*4").mask("1 0 1 1")
+0 0 1/4 s=a
+0 1/2 3/4 s=a
+0 3/4 1 s=a
+1 1 5/4 s=a
+1 3/2 7/4 s=a
+1 7/4 2 s=a
+2 2 9/4 s=a
+2 5/2 11/4 s=a
+2 11/4 3 s=a
+3 3 13/4 s=a
+3 7/2 15/4 s=a
+3 15/4 4 s=a
+= s("a*4").mask("<1 [0 1]>")
+0 0 1/4 s=a
+0 1/4 1/2 s=a
+0 1/2 3/4 s=a
+0 3/4 1 s=a
+1 3/2 7/4 s=a
+1 7/4 2 s=a
+2 2 9/4 s=a
+2 9/4 5/2 s=a
+2 5/2 11/4 s=a
+2 11/4 3 s=a
+3 7/2 15/4 s=a
+3 15/4 4 s=a
+= s("a*8").euclid(3,8)
+0 0 1/8 s=a
+0 3/8 1/2 s=a
+0 3/4 7/8 s=a
+1 1 9/8 s=a
+1 11/8 3/2 s=a
+1 7/4 15/8 s=a
+2 2 17/8 s=a
+2 19/8 5/2 s=a
+2 11/4 23/8 s=a
+3 3 25/8 s=a
+3 27/8 7/2 s=a
+3 15/4 31/8 s=a
+= s("a").euclidRot(3,8,2)
+0 0 1/8 s=a
+0 1/4 3/8 s=a
+0 5/8 3/4 s=a
+1 1 9/8 s=a
+1 5/4 11/8 s=a
+1 13/8 7/4 s=a
+2 2 17/8 s=a
+2 9/4 19/8 s=a
+2 21/8 11/4 s=a
+3 3 25/8 s=a
+3 13/4 27/8 s=a
+3 29/8 15/4 s=a
+= stack(s("a"), note("c e"))
+0 0 1 s=a
+0 0 1/2 note=48
+0 1/2 1 note=52
+1 1 2 s=a
+1 1 3/2 note=48
+1 3/2 2 note=52
+2 2 3 s=a
+2 2 5/2 note=48
+2 5/2 3 note=52
+3 3 4 s=a
+3 3 7/2 note=48
+3 7/2 4 note=52
+= cat(s("a"), s("b c"))
+0 0 1 s=a
+1 1 3/2 s=b
+1 3/2 2 s=c
+2 2 3 s=a
+3 3 7/2 s=b
+3 7/2 4 s=c
+= seq(s("a"), s("b c"))
+0 0 1/2 s=a
+0 1/2 3/4 s=b
+0 3/4 1 s=c
+1 1 3/2 s=a
+1 3/2 7/4 s=b
+1 7/4 2 s=c
+2 2 5/2 s=a
+2 5/2 11/4 s=b
+2 11/4 3 s=c
+3 3 7/2 s=a
+3 7/2 15/4 s=b
+3 15/4 4 s=c
+= stack(s("a"), s("b")).fast(2)
+0 0 1/2 s=a
+0 0 1/2 s=b
+0 1/2 1 s=a
+0 1/2 1 s=b
+1 1 3/2 s=a
+1 1 3/2 s=b
+1 3/2 2 s=a
+1 3/2 2 s=b
+2 2 5/2 s=a
+2 2 5/2 s=b
+2 5/2 3 s=a
+2 5/2 3 s=b
+3 3 7/2 s=a
+3 3 7/2 s=b
+3 7/2 4 s=a
+3 7/2 4 s=b
+= note("60 62").trans(5)
+0 0 1/2 note=65
+0 1/2 1 note=67
+1 1 3/2 note=65
+1 3/2 2 note=67
+2 2 5/2 note=65
+2 5/2 3 note=67
+3 3 7/2 note=65
+3 7/2 4 note=67
+= note("c3 e3").transpose(-12)
+0 0 1/2 note=36
+0 1/2 1 note=40
+1 1 3/2 note=36
+1 3/2 2 note=40
+2 2 5/2 note=36
+2 5/2 3 note=40
+3 3 7/2 note=36
+3 7/2 4 note=40
+= note("c4 e4").trans("3M")
+0 0 1/2 note=64
+0 1/2 1 note=68
+1 1 3/2 note=64
+1 3/2 2 note=68
+2 2 5/2 note=64
+2 5/2 3 note=68
+3 3 7/2 note=64
+3 7/2 4 note=68
+= note("c4 e4 g4").trans("<0 5P -2m>")
+0 0 1/3 note=60
+0 1/3 2/3 note=64
+0 2/3 1 note=67
+1 1 4/3 note=67
+1 4/3 5/3 note=71
+1 5/3 2 note=74
+2 2 7/3 note=59
+2 7/3 8/3 note=63
+2 8/3 3 note=66
+3 3 10/3 note=60
+3 10/3 11/3 note=64
+3 11/3 4 note=67
+= n("0 2").scale("C:major").trans(-12)
+0 0 1/2 note=36
+0 1/2 1 note=40
+1 1 3/2 note=36
+1 3/2 2 note=40
+2 2 5/2 note=36
+2 5/2 3 note=40
+3 3 7/2 note=36
+3 7/2 4 note=40
+= "c3 e3".trans(12).note()
+0 0 1/2 note=60
+0 1/2 1 note=64
+1 1 3/2 note=60
+1 3/2 2 note=64
+2 2 5/2 note=60
+2 5/2 3 note=64
+3 3 7/2 note=60
+3 7/2 4 note=64

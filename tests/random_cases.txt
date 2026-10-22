@@ -1,0 +1,12 @@
+# Random patterns: RPStrudel's own random numbers, so these aren't compared
+# with Strudel. Each line: a pattern, then the range its onsets over 64
+# cycles must fall in. The host test also checks they repeat every 16
+# cycles and give the same answer when queried again.
+
+s("hh*8?")                        | 200 312
+s("hh*8?0.25")                    | 330 434
+s("hh*8").degradeBy(0.9)          | 20 80
+s("hh*8").degrade()               | 200 312
+s("[a | b | c]*4")                | 256 256
+s("hh*8").sometimes(x => x.gain(0.5)) | 512 512
+s("hh*8").rarely(x => x.fast(2))  | 560 720

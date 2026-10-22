@@ -22,6 +22,9 @@ void editor_end_keys(void);
  * scroll or a new line. True if it drew anything. */
 bool editor_draw(void);
 
+/* Back to the top with the cursor at the start, after new text. */
+void editor_reset(void);
+
 /* Forces a full redraw on the next editor_draw. */
 void editor_dirty(void);
 

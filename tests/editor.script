@@ -28,7 +28,7 @@ press 0x07
 run 2
 release 0x07
 release 0xE0
-run 60
+run 120
 expect "c5 e5 g5 c6"
 expect "updated"
 expect "flute"
@@ -49,7 +49,7 @@ press 0x07
 run 2
 release 0x07
 release 0xE0
-run 60
+run 120
 expect "not changed"
 expect "error: pattern ends too soon"
 expect "flute"
@@ -75,7 +75,7 @@ press 0x07
 run 2
 release 0x07
 release 0xE0
-run 60
+run 120
 expect "$: s(\"bd [sd]\")"
 expect "updated"
 expect-not "error"
@@ -95,7 +95,7 @@ press 0x07
 run 2
 release 0x07
 release 0xE0
-run 60
+run 120
 expect "error: unknown sound"
 
 # 5. Esc stops
@@ -108,5 +108,5 @@ press 0x07
 run 2
 release 0x07
 release 0xE0
-run 60
+run 120
 expect "STOPPED"

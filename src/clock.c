@@ -12,7 +12,13 @@
 
 #define BARRIER() __asm__ volatile("" ::: "memory")
 
-static cycle_events_t buf[2];
+/* The two event buffers are in XRAM: the interrupt reads them through
+ * portal 1, the main loop writes them through portal 0. */
+#define EV_BYTES ((unsigned)EV_MAX * sizeof(event_t))
+_Static_assert(2 * EV_BYTES <= 2304, "the event buffers must fit their XRAM space");
+static uint8_t count[2];
+static uint8_t fill_which, fill_count; /* the buffer being filled */
+static uint16_t cur_time;              /* time of the next event to play */
 static volatile uint8_t play;       /* buffer the interrupt plays */
 static volatile uint8_t next_ready; /* the other buffer holds the next cycle */
 static volatile bool running;
@@ -42,6 +48,8 @@ static volatile uint8_t key_events, ctrl_enters;
 #define K_ESC 0x02
 #define K_PERIOD 0x04
 #define K_D 0x08
+#define K_S 0x10
+#define K_O 0x20
 
 static void watch_keys(void)
 {
@@ -55,20 +63,28 @@ static void watch_keys(void)
     uint8_t b11 = RIA.rw1;
     RIA.addr1 = XRAM_KEYBOARD + 0; /* 0x07 D */
     uint8_t b0 = RIA.rw1;
+    RIA.addr1 = XRAM_KEYBOARD + 2; /* 0x12 O, 0x16 S */
+    uint8_t b2 = RIA.rw1;
     bool ctrl = mods & 0x11; /* left 0xE0, right 0xE4 */
     bool alt = mods & 0x44;  /* left 0xE2, right 0xE6 */
     uint8_t now = ((b5 | b11) & 0x01 ? K_ENTER : 0) | (b5 & 0x02 ? K_ESC : 0) | (b6 & 0x80 ? K_PERIOD : 0) |
-                  (b0 & 0x80 ? K_D : 0);
+                  (b0 & 0x80 ? K_D : 0) | (b2 & 0x40 ? K_S : 0) | (b2 & 0x04 ? K_O : 0);
     uint8_t down = now & ~key_prev;
     key_prev = now;
     if ((down & K_ENTER) && (ctrl || alt)) {
         key_events |= CLOCK_KEY_EVAL;
         ctrl_enters++;
     }
-    if (((down & K_PERIOD) && (ctrl || alt)) || (down & K_ESC))
+    if ((down & K_PERIOD) && (ctrl || alt))
         key_events |= CLOCK_KEY_STOP;
+    if (down & K_ESC)
+        key_events |= CLOCK_KEY_ESC;
     if ((down & K_D) && ctrl)
         key_events |= CLOCK_KEY_DUMP;
+    if ((down & K_S) && ctrl)
+        key_events |= CLOCK_KEY_SAVE;
+    if ((down & K_O) && ctrl)
+        key_events |= CLOCK_KEY_OPEN;
 }
 
 static void hit(uint8_t src)
@@ -78,6 +94,22 @@ static void hit(uint8_t src)
     uint8_t h = hit_head;
     hit_ring[h] = src;
     hit_head = (h + 1) & (HIT_RING - 1);
+}
+
+static unsigned ev_addr(uint8_t which, uint8_t i)
+{
+    return XRAM_EVENTS + (which ? EV_BYTES : 0) + (unsigned)i * sizeof(event_t);
+}
+
+/* The time of buffer b's event i, into cur_time (interrupt only). */
+static void load_time(uint8_t b)
+{
+    if (idx < count[b]) {
+        RIA.step1 = 1;
+        RIA.addr1 = ev_addr(b, idx);
+        uint8_t lo = RIA.rw1;
+        cur_time = lo | (uint16_t)RIA.rw1 << 8;
+    }
 }
 
 static void play_event(const event_t *e)
@@ -117,26 +149,41 @@ __attribute__((interrupt)) static void clock_irq(void)
     uint32_t p = old + step;
     phase = p;
 
-    cycle_events_t *b = &buf[play];
+    uint8_t b = play;
+    uint16_t pos = (uint16_t)(p >> 16);
     if (p < old) {
         /* The cycle wrapped. A step is bigger than 1/65536 of a cycle, so
          * events at the very end can be passed over: play them now. */
-        while (idx < b->count)
-            play_event(&b->ev[idx++]);
+        pos = 0xFFFF;
         cycle++;
+    }
+    for (;;) {
+        while (idx < count[b] && cur_time <= pos) {
+            event_t e;
+            uint8_t *d = (uint8_t *)&e;
+            RIA.step1 = 1;
+            RIA.addr1 = ev_addr(b, idx);
+            for (uint8_t i = 0; i < sizeof e; i++)
+                d[i] = RIA.rw1;
+            play_event(&e);
+            idx++;
+            load_time(b);
+        }
+        if (pos != 0xFFFF || !(p < old))
+            break;
+        /* into the next cycle */
         if (next_ready) {
             play ^= 1;
             next_ready = 0;
-            b = &buf[play];
+            b = play;
         } else {
             late++;
         }
         idx = 0;
+        load_time(b);
+        pos = (uint16_t)(p >> 16);
+        old = p; /* done wrapping */
     }
-
-    uint16_t pos = (uint16_t)(p >> 16);
-    while (idx < b->count && b->ev[idx].time <= pos)
-        play_event(&b->ev[idx++]);
 }
 
 void clock_init(void)
@@ -175,29 +222,20 @@ uint16_t clock_cpm10(void)
     return cpm10;
 }
 
-/* Note-offs sort before note-ons at the same time, so a voice can end one
- * note and start the next on the same tick. */
-static void sort_events(cycle_events_t *c)
+bool clock_add_event(const event_t *e)
 {
-    for (uint8_t i = 1; i < c->count; i++) {
-        event_t e = c->ev[i];
-        uint8_t j = i;
-        while (j > 0) {
-            event_t *p = &c->ev[j - 1];
-            if (p->time < e.time || (p->time == e.time && (p->kind & EV_ON) <= (e.kind & EV_ON)))
-                break;
-            c->ev[j] = *p;
-            j--;
-        }
-        c->ev[j] = e;
-    }
+    if (fill_count >= EV_MAX)
+        return false;
+    xram0_write(ev_addr(fill_which, fill_count++), e, sizeof *e);
+    return true;
 }
 
 static void fill(uint8_t which, uint16_t c)
 {
-    buf[which].count = 0;
-    clock_fill(&buf[which], c);
-    sort_events(&buf[which]);
+    fill_which = which;
+    fill_count = 0;
+    clock_fill(c);
+    count[which] = fill_count;
     BARRIER();
 }
 
@@ -209,6 +247,7 @@ void clock_start(void)
     SEI();
     play = 0;
     idx = 0;
+    load_time(0);
     phase = 0;
     cycle = 0;
     next_ready = 0;

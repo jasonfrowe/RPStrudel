@@ -9,26 +9,6 @@
 
 _Static_assert(sizeof(opl_patch_t) == 11, "patches are 11 bytes in XRAM");
 
-uint8_t patch_find(const char *name, uint8_t len)
-{
-    RIA.addr0 = NAMES_AT;
-    RIA.step0 = 1;
-    for (;;) {
-        uint8_t l = RIA.rw0;
-        if (!l)
-            return PATCH_UNKNOWN;
-        bool match = l == len;
-        for (uint8_t i = 0; i < l; i++) {
-            char c = (char)RIA.rw0;
-            if (match && c != name[i])
-                match = false;
-        }
-        uint8_t id = RIA.rw0;
-        if (match)
-            return id;
-    }
-}
-
 const char *patch_name(uint8_t id)
 {
     static char buf[24];
@@ -48,7 +28,9 @@ const char *patch_name(uint8_t id)
                 buf[n++] = c;
         }
         buf[n] = 0;
-        if (RIA.rw0 == id)
+        uint8_t got = RIA.rw0;
+        (void)RIA.rw0; /* its note */
+        if (got == id)
             return buf[0] == 'g' && buf[1] == 'm' && buf[2] == '_' ? buf + 3 : buf;
     }
     /* General MIDI 1-3 have no name of their own: Strudel's gm_piano */

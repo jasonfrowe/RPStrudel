@@ -11,6 +11,7 @@
 #include "clock.h"
 #include "editbuf.h"
 #include "editor.h"
+#include "files.h"
 #include "hidkeys.h"
 #include "opl.h"
 #include "patches.h"
@@ -18,6 +19,7 @@
 #include "player.h"
 #include "prog.h"
 #include "screen.h"
+#include "text.h"
 #include "xram.h"
 
 static const char demo[] =
@@ -25,10 +27,11 @@ static const char demo[] =
     "// Ctrl+Enter plays your changes, Ctrl+. stops\n"
     "setcpm(30)\n"
     "\n"
-    "$: s(\"bd(3,8), [~ sd]*2\")\n"
-    "$: s(\"hh*8\").gain(\"[.5 1]*4\")\n"
-    "$: note(\"<[c2 c3]*4 [ab1 ab2]*4>\").s(\"gm_synth_bass_1\")\n"
-    "$: note(\"<c4 eb4 g4 [bb4 c5]>(3,8)\").s(\"gm_epiano1\").gain(.7)\n";
+    "$: s(\"bd(3,8,<0 2>), [~ sd]*2\").every(4, x => x.ply(2))\n"
+    "$: s(\"hh*8?\").gain(\"[.5 1]*4\")\n"
+    "$: n(\"<0 3 5 [7 10]>*2\").scale(\"C2:minor\").s(\"gm_synth_bass_1\")\n"
+    "$: n(\"0 [2 4] <3 6> 7\").scale(\"C4:minor\").s(\"gm_epiano1\")\n"
+    "  .off(0.25, x => x.add(note(12))).gain(.6)\n";
 
 /* Screen layout */
 #define TITLE_BG 24
@@ -118,7 +121,9 @@ static void draw_tenths(uint8_t x, uint8_t y, uint16_t v, uint8_t fg, uint8_t bg
 /* A token's cells, recoloured in one go (a token never spans lines). */
 static void draw_atom(uint8_t a, bool lit)
 {
-    const pat_atom_t *at = &pat_atoms[a];
+    pat_atom_t atom;
+    pat_atom_get(a, &atom);
+    const pat_atom_t *at = &atom;
     uint8_t x, y;
     if (!at->len || !editor_xy(at->pos, &x, &y))
         return;
@@ -138,7 +143,7 @@ static void update_hilites(void)
 {
     uint8_t s;
     while ((s = clock_next_hit()) != 0xFF) {
-        if (s < pat_atom_count && pat_atoms[s].len) {
+        if (s < pat_atom_count) {
             if (!hilite[s])
                 draw_atom(s, true);
             hilite[s] = HILITE_FRAMES;
@@ -153,23 +158,30 @@ static void update_hilites(void)
 /* Keep positions on the same text as it is edited. */
 void editor_on_edit(uint16_t pos, int8_t delta)
 {
+    files_modified = true;
     for (uint8_t i = 0; i < pat_atom_count; i++) {
-        pat_atom_t *at = &pat_atoms[i];
-        if (!at->len)
+        pat_atom_t at;
+        pat_atom_get(i, &at);
+        if (!at.len)
             continue;
         if (delta > 0) {
-            if (at->pos >= pos)
-                at->pos += (uint16_t)delta;
-            else if (pos < at->pos + at->len)
-                at->len = 0; /* typed inside it */
+            if (at.pos >= pos)
+                at.pos += (uint16_t)delta;
+            else if (pos < at.pos + at.len)
+                at.len = 0; /* typed inside it */
+            else
+                continue;
         } else {
-            if (at->pos > pos)
-                at->pos -= (uint16_t)-delta;
-            else if (pos < at->pos + at->len)
-                at->len = 0; /* part of it deleted */
+            if (at.pos > pos)
+                at.pos -= (uint16_t)-delta;
+            else if (pos < at.pos + at.len)
+                at.len = 0; /* part of it deleted */
+            else
+                continue;
         }
-        if (!at->len)
+        if (!at.len)
             hilite[i] = 0;
+        pat_atom_put(i, &at);
     }
     if (error_pos != NO_POS) {
         if (delta > 0 && error_pos >= pos)
@@ -182,11 +194,26 @@ void editor_on_edit(uint16_t pos, int8_t delta)
     }
 }
 
+/* New text from a file: the playing program's positions no longer point
+ * at anything, so nothing lights up until the next Ctrl+Enter. */
+void ui_text_replaced(void)
+{
+    for (uint8_t i = 0; i < pat_atom_count; i++) {
+        pat_atom_t at;
+        pat_atom_get(i, &at);
+        at.len = 0;
+        pat_atom_put(i, &at);
+    }
+    memset(hilite, 0, sizeof hilite);
+    error_pos = NO_POS;
+    editor_mark(NO_POS);
+}
+
 /* ---- status ---- */
 
-static void message(const char *msg, uint8_t fg)
+void ui_message(const char *msg, uint8_t fg)
 {
-    screen_fill(30, STATUS_Y, TEXT_COLS - 30, ' ', fg, COL_PANEL);
+    screen_fill(44, STATUS_Y, TEXT_COLS - 44, ' ', fg, COL_PANEL);
     screen_text(TEXT_COLS - 1 - (uint8_t)strlen(msg), STATUS_Y, msg, fg, COL_PANEL);
     message_frames = MESSAGE_FRAMES;
 }
@@ -207,7 +234,19 @@ static void draw_error(void)
     screen_text(9, ERROR_Y, msg, COL_WHITE, COL_BLACK);
     error_pos = player_error_pos;
     editor_mark(error_pos);
-    screen_text(TEXT_COLS - 22, ERROR_Y, "(marked red in code)", COL_DARKGREY, COL_BLACK);
+    if (error_pos < edit_length()) {
+        /* where, as line and column (also marked red in the code) */
+        uint16_t line = 1, ls = 0;
+        for (uint16_t i = 0; i < error_pos; i++)
+            if (text_at(i) == '\n') {
+                line++;
+                ls = i + 1;
+            }
+        screen_text(TEXT_COLS - 22, ERROR_Y, "line", COL_DARKGREY, COL_BLACK);
+        draw_u16(TEXT_COLS - 17, ERROR_Y, line, 1, COL_WHITE, COL_BLACK);
+        screen_text(TEXT_COLS - 12, ERROR_Y, "col", COL_DARKGREY, COL_BLACK);
+        draw_u16(TEXT_COLS - 8, ERROR_Y, error_pos - ls + 1, 1, COL_WHITE, COL_BLACK);
+    }
 }
 
 static void draw_title(void)
@@ -227,8 +266,10 @@ static void draw_status(void)
     draw_u16(5, STATUS_Y, editor_line(), 4, COL_WHITE, COL_PANEL);
     screen_text(11, STATUS_Y, "Col", COL_GREY, COL_PANEL);
     draw_u16(15, STATUS_Y, editor_col(), 3, COL_WHITE, COL_PANEL);
-    draw_u16(19, STATUS_Y, edit_length(), 5, COL_DARKGREY, COL_PANEL);
-    screen_text(24, STATUS_Y, " chars", COL_DARKGREY, COL_PANEL);
+    screen_fill(19, STATUS_Y, 24, ' ', COL_WHITE, COL_PANEL);
+    screen_text(20, STATUS_Y, files_name(), COL_GREY, COL_PANEL);
+    if (files_modified)
+        screen_text(20 + (uint8_t)strlen(files_name()), STATUS_Y, "*", COL_YELLOW, COL_PANEL);
 }
 
 static void draw_static(void)
@@ -252,7 +293,8 @@ static void draw_static(void)
     screen_text(64, STATS_Y, "late", COL_GREY, COL_BLACK);
 
     screen_fill(0, TEXT_ROWS - 1, TEXT_COLS, ' ', COL_WHITE, COL_PANEL);
-    screen_text(2, TEXT_ROWS - 1, "Ctrl+Enter play/update   Ctrl+. or Esc stop", COL_GREY, COL_PANEL);
+    screen_text(2, TEXT_ROWS - 1, "Ctrl+Enter play/update  Ctrl+. or Esc stop  Ctrl+S save  Ctrl+O open", COL_GREY,
+                COL_PANEL);
 }
 
 static void draw_position(void)
@@ -288,7 +330,7 @@ static void draw_voices(void)
         else if (meter[v] > 0)
             meter[v]--;
         uint8_t n = meter[v];
-        uint8_t color = PATCH_IS_DRUM(p) ? COL_GREEN : COL_MAGENTA;
+        uint8_t color = player_voice_drum[v] ? COL_GREEN : COL_MAGENTA;
         screen_fill(x + 18, y, n, GLYPH_BLOCK, color, COL_BLACK);
         screen_fill(x + 18 + n, y, METER_W - n, ' ', COL_WHITE, COL_BLACK);
     }
@@ -296,10 +338,10 @@ static void draw_voices(void)
 
 /* ---- control ---- */
 
-void clock_fill(cycle_events_t *out, uint16_t cycle)
+void clock_fill(uint16_t cycle)
 {
     uint16_t t0 = clock_ms();
-    player_fill(out, cycle);
+    player_fill(cycle);
     fill_ms = clock_ms() - t0;
     if (fill_ms > fill_ms_max)
         fill_ms_max = fill_ms;
@@ -322,7 +364,7 @@ static void evaluate(void)
     bool ok = player_load(edit_length());
     shown_error = (const char *)1; /* show it, or clear it */
     if (!ok) {
-        message("not changed: see the error", COL_RED);
+        ui_message("not changed: see the error", COL_RED);
         return;
     }
     memset(hilite, 0, sizeof hilite);
@@ -334,11 +376,11 @@ static void evaluate(void)
     } else {
         clock_start();
     }
-    char msg[32] = "updated, parsed in ";
+    char msg[32] = "updated in ";
     char num[8];
     strcat(msg, u16_str(num + sizeof num, clock_ms() - t0));
     strcat(msg, " ms");
-    message(msg, COL_GREEN);
+    ui_message(msg, COL_GREEN);
     draw_title();
 }
 
@@ -369,14 +411,41 @@ static void dump_screen(void)
     }
 }
 
-static uint8_t enters_to_swallow;
+/* The Enter a Ctrl+Enter types arrives just after it, if at all (a key
+ * that only changed the key bitmap types nothing), so it is only looked
+ * for for a moment. */
+static uint8_t enters_to_swallow, swallow_left, swallow_vsync;
+#define SWALLOW_FRAMES 30 /* real frames, counted by vsync */
 
 static void handle_keys(void)
 {
     xram0_read(&kb, XRAM_KEYBOARD, sizeof(kb));
     bool ctrl = KEYBOARD_PRESSED(kb.keys, HID_KEY_CONTROL_LEFT) || KEYBOARD_PRESSED(kb.keys, HID_KEY_CONTROL_RIGHT);
     uint8_t events = clock_take_keys();
-    enters_to_swallow += clock_take_ctrl_enters();
+    uint8_t ce = clock_take_ctrl_enters();
+    uint8_t passed = (uint8_t)(RIA.vsync - swallow_vsync);
+    swallow_vsync = RIA.vsync;
+    if (ce) {
+        enters_to_swallow += ce;
+        swallow_left = SWALLOW_FRAMES;
+    } else if (passed >= swallow_left) {
+        swallow_left = 0;
+        enters_to_swallow = 0;
+    } else {
+        swallow_left -= passed;
+    }
+
+    if (files_active()) {
+        /* the save prompt or the open list has the keys */
+        while (RIA.ready & RIA_READY_RX_BIT)
+            files_key(RIA.rx);
+        files_end_keys();
+        if (events & CLOCK_KEY_ESC)
+            files_cancel();
+        if (!files_active())
+            draw_status();
+        return;
+    }
 
     /* Text first (it comes from the console, which knows the keyboard
      * layout), so what was typed before a Ctrl+Enter is in what plays. */
@@ -396,10 +465,14 @@ static void handle_keys(void)
 
     if (events & CLOCK_KEY_EVAL)
         evaluate();
-    if (events & CLOCK_KEY_STOP)
+    if (events & (CLOCK_KEY_STOP | CLOCK_KEY_ESC))
         stop();
     if (events & CLOCK_KEY_DUMP)
         dump_screen();
+    if (events & CLOCK_KEY_SAVE)
+        files_save_prompt();
+    if (events & CLOCK_KEY_OPEN)
+        files_open_list();
 }
 
 int main(void)
@@ -413,6 +486,7 @@ int main(void)
     draw_static();
     editor_init(EDIT_X, EDIT_Y, EDIT_COLS, EDIT_ROWS, demo);
     editor_set_lit(hilite);
+    files_init(EDIT_X, EDIT_Y, EDIT_COLS, EDIT_ROWS, STATUS_Y);
     evaluate();
 
     uint8_t vs = RIA.vsync;
@@ -427,14 +501,14 @@ int main(void)
 
         handle_keys();
         clock_service(); /* also when the frame's work ran long */
-        if (editor_draw())
+        if (!files_active() && editor_draw())
             draw_status();
         update_hilites();
         draw_voices();
         draw_position();
         draw_error();
         if (message_frames && --message_frames == 0)
-            screen_fill(30, STATUS_Y, TEXT_COLS - 30, ' ', COL_WHITE, COL_PANEL);
+            screen_fill(44, STATUS_Y, TEXT_COLS - 44, ' ', COL_WHITE, COL_PANEL);
 
         if (frames >= 60) {
             uint16_t now = clock_ms();

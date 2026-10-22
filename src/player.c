@@ -4,6 +4,8 @@
 
 #include "mini.h"
 #include "opl.h"
+#include "overlay.h"
+#include "sounds.h"
 #include "patches.h"
 #include "pattern.h"
 #include "prog.h"
@@ -14,6 +16,7 @@
 const char *player_error;
 uint16_t player_error_pos;
 uint8_t player_voice_patch[OPL_VOICES];
+bool player_voice_drum[OPL_VOICES];
 
 
 /* Times are absolute: cycle << 16 | position in the cycle. */
@@ -41,7 +44,20 @@ typedef struct
     uint8_t patch, note;
     int8_t att;
     uint8_t src[2];
+    bool drum;             /* rings out by itself: no note-off */
+    uint8_t voice, serial; /* given out in time order */
 } note_t;
+
+/* This cycle's note-offs, put in time order before they go out. */
+typedef struct
+{
+    uint16_t time;
+    uint8_t voice, serial;
+} off_t;
+
+#define OFFS_MAX 64
+static off_t offs[OFFS_MAX];
+static uint8_t off_count;
 
 #define NOTES_MAX 48
 static note_t notes[NOTES_MAX];
@@ -57,6 +73,7 @@ typedef struct
     uint8_t patch, note;
     int8_t att;
     uint8_t src[2];
+    bool drum;
 } cached_note_t;
 
 typedef struct
@@ -108,6 +125,7 @@ static void cache_store(uint8_t pattern, uint16_t residue, uint8_t from, uint8_t
         c.att = notes[i].att;
         c.src[0] = notes[i].src[0];
         c.src[1] = notes[i].src[1];
+        c.drum = notes[i].drum;
         xram0_write(XRAM_CACHE + cache_note_count * sizeof c, &c, sizeof c);
         cache_note_count++;
     }
@@ -120,68 +138,11 @@ static const uint16_t att_steps[] = {
     248,  227,  208,  191,  175,  161,  147,  135,  124,  114,  104,  96,   88,   81,   74,
 };
 
-/* While a new program is parsed, the playing one waits in XRAM. */
-typedef struct
-{
-    uint8_t node_count, kid_count, atom_count, pattern_count;
-    int16_t cpm10;
-} counts_t;
-
-#define BK_COUNTS XRAM_BACKUP
-#define BK_PATTERNS (BK_COUNTS + sizeof(counts_t))
-#define BK_NODES (BK_PATTERNS + sizeof(prog_patterns))
-#define BK_KIDS (BK_NODES + sizeof(pat_nodes))
-#define BK_ATOMS (BK_KIDS + sizeof(pat_kids))
-_Static_assert(sizeof(counts_t) + sizeof(prog_patterns) + sizeof(pat_nodes) + sizeof(pat_kids) +
-                       sizeof(pat_atoms) <=
-                   4096,
-               "the backup must fit its XRAM space");
-
-static void backup(void)
-{
-    counts_t c = {pat_node_count, pat_kid_count, pat_atom_count, prog_pattern_count, prog_cpm10};
-    xram0_write(BK_COUNTS, &c, sizeof c);
-    xram0_write(BK_PATTERNS, prog_patterns, sizeof prog_patterns);
-    xram0_write(BK_NODES, pat_nodes, sizeof pat_nodes);
-    xram0_write(BK_KIDS, pat_kids, sizeof pat_kids);
-    xram0_write(BK_ATOMS, pat_atoms, sizeof pat_atoms);
-}
-
-static void restore(void)
-{
-    counts_t c;
-    xram0_read(&c, BK_COUNTS, sizeof c);
-    xram0_read(prog_patterns, BK_PATTERNS, sizeof prog_patterns);
-    xram0_read(pat_nodes, BK_NODES, sizeof pat_nodes);
-    xram0_read(pat_kids, BK_KIDS, sizeof pat_kids);
-    xram0_read(pat_atoms, BK_ATOMS, sizeof pat_atoms);
-    pat_node_count = c.node_count;
-    pat_kid_count = c.kid_count;
-    pat_atom_count = c.atom_count;
-    prog_pattern_count = c.pattern_count;
-    prog_cpm10 = c.cpm10;
-}
-
-/* Works out what each value means as a sound and as a note, so playing
- * needs no text. */
-static void resolve_atoms(void)
-{
-    for (uint8_t i = 0; i < pat_atom_count; i++) {
-        pat_atom_t *at = &pat_atoms[i];
-        char buf[32];
-        uint8_t n = text_copy(at->pos, at->len, buf, sizeof buf);
-        at->patch = n < at->len ? PATCH_UNKNOWN : patch_find(buf, n);
-        int16_t note;
-        if (at->is_num) {
-            rat_t t, half = {1, 2};
-            rat_add(&t, &at->num, &half);
-            note = rat_floor(&t); /* MIDI number, rounded */
-        } else {
-            note = mini_note_number(buf, n);
-        }
-        at->note = note < 0 || note > 127 ? -1 : (int8_t)note;
-    }
-}
+/* While a new program is parsed (into the other pattern bank), the playing
+ * one's list of patterns waits here. */
+static prog_pattern_t saved_patterns[PROG_PATTERNS];
+static uint8_t saved_count;
+static int16_t saved_cpm10;
 
 bool player_load(uint16_t len)
 {
@@ -190,16 +151,31 @@ bool player_load(uint16_t len)
         memset(player_voice_patch, PATCH_UNKNOWN, sizeof player_voice_patch);
         first = false;
     }
-    backup();
-    if (!prog_parse(len)) {
+    memcpy(saved_patterns, prog_patterns, sizeof saved_patterns);
+    saved_count = prog_pattern_count;
+    saved_cpm10 = prog_cpm10;
+    pat_begin();
+    if (!overlay_load(OVERLAY_PARSE)) {
+        player_error = "cannot read ROM:parse.ovl";
+        player_error_pos = 0xFFFF;
+        pat_abort();
+        return false;
+    }
+    bool ok = prog_parse(len);
+    if (ok)
+        sounds_resolve();
+    overlay_load(OVERLAY_QUERY);
+    if (!ok) {
         player_error = pat_error;
         player_error_pos = prog_error_pos;
         pat_error = 0; /* queries stop at any pat_error */
-        restore();
+        pat_abort();
+        memcpy(prog_patterns, saved_patterns, sizeof saved_patterns);
+        prog_pattern_count = saved_count;
+        prog_cpm10 = saved_cpm10;
         return false;
     }
     player_error = 0;
-    resolve_atoms();
     cache_clear();
     if (prog_cpm10 > 0)
         clock_set_cpm10((uint16_t)prog_cpm10);
@@ -234,46 +210,52 @@ static int8_t steps_below(int32_t g12)
     return a == (int8_t)(sizeof(att_steps) / 2) ? 63 : a;
 }
 
-static int8_t gain_att(uint8_t atom)
+/* Gain (in 64ths, 0xFF for none) as steps below the patch's level. */
+static int8_t gain_att(uint8_t g64)
 {
-    if (atom == PAT_NONE || !pat_atoms[atom].is_num)
+    if (g64 == 0xFF)
         return 0;
-    rat_t g = pat_atoms[atom].num;
-    if (g.n <= 0)
+    if (g64 == 0)
         return 63;
-    int32_t g12 = ((int32_t)g.n << 12) / g.d;
+    int16_t g12 = (int16_t)g64 << 6; /* 4096 is a gain of 1 */
     if (g12 <= 4096)
         return steps_below(g12);
     /* louder than the patch: the same steps the other way, up to 4x */
-    int32_t inv = ((int32_t)g.d << 12) / g.n;
+    int32_t inv = ((int32_t)4096 * 4096) / g12;
     return (int8_t)-steps_below(inv < 1024 ? 1024 : inv);
 }
 
 /* One hap becomes one note, or nothing. */
 static bool make_note(const pat_hap_t *h, int32_t cycle, int32_t base, note_t *n)
 {
+    pat_atom_t at;
     uint8_t s = h->ctl[CTL_S];
     uint8_t patch = PATCH_TRIANGLE; /* Strudel's default sound */
+    uint8_t drum = 0;
     if (s != PAT_NONE) {
-        patch = pat_atoms[s].patch;
+        pat_atom_get(s, &at);
+        patch = at.patch;
+        drum = at.drum;
         if (patch == PATCH_UNKNOWN) {
-            problem("unknown sound", pat_atoms[s].pos);
+            problem("unknown sound", at.pos);
             return false;
         }
     }
 
     int16_t note;
-    if (PATCH_IS_DRUM(patch)) {
-        note = KIT_NOTE;
-    } else if (h->ctl[CTL_NOTE] != PAT_NONE) {
-        note = pat_atoms[h->ctl[CTL_NOTE]].note;
-    } else if (h->ctl[CTL_N] != PAT_NONE && patch >= PATCH_GM_COUNT) {
-        note = pat_atoms[h->ctl[CTL_N]].note; /* synths: n is the note */
+    bool given = h->ctl[CTL_NOTE] != PAT_NONE || h->note != NO_VAL;
+    if (drum) {
+        note = drum;
+    } else if (given) {
+        note = h->note;
+    } else if (h->n != NO_VAL && patch >= PATCH_GM_COUNT) {
+        note = h->n; /* synths: n is the note */
     } else {
         note = patch >= PATCH_GM_COUNT ? 36 : 48;
     }
     if (note < 0 || note > 127) {
-        problem("not a note", pat_atoms[h->ctl[CTL_NOTE] != PAT_NONE ? h->ctl[CTL_NOTE] : h->atom].pos);
+        pat_atom_get(h->ctl[CTL_NOTE] != PAT_NONE ? h->ctl[CTL_NOTE] : h->atom, &at);
+        problem("not a note", at.pos);
         return false;
     }
 
@@ -282,7 +264,8 @@ static bool make_note(const pat_hap_t *h, int32_t cycle, int32_t base, note_t *n
     n->end = start + pos_of(&h->t[WE], base);
     n->patch = patch;
     n->note = (uint8_t)note;
-    n->att = gain_att(h->ctl[CTL_GAIN]);
+    n->att = gain_att(h->gain);
+    n->drum = drum != 0;
     n->src[0] = h->ctl[CTL_S];
     n->src[1] = h->ctl[CTL_NOTE] != PAT_NONE ? h->ctl[CTL_NOTE] : h->ctl[CTL_N];
     if (n->src[0] == PAT_NONE)
@@ -304,25 +287,37 @@ static uint8_t pick_voice(uint32_t t, uint8_t patch)
     return best;
 }
 
-static void add_event(cycle_events_t *out, uint16_t time, uint8_t kind, const note_t *n, uint8_t serial)
+static void add_off(uint16_t time, uint8_t voice, uint8_t serial)
 {
-    if (out->count >= EV_MAX) {
-        problem("too many notes in one cycle", 0);
+    if (off_count >= OFFS_MAX)
         return;
+    uint8_t j = off_count++;
+    while (j > 0 && offs[j - 1].time > time) {
+        offs[j] = offs[j - 1];
+        j--;
     }
-    event_t *e = &out->ev[out->count++];
-    e->time = time;
-    e->kind = kind;
-    e->serial = serial;
+    offs[j].time = time;
+    offs[j].voice = voice;
+    offs[j].serial = serial;
+}
+
+static void emit(uint16_t time, uint8_t kind, const note_t *n, uint8_t serial)
+{
+    event_t e;
+    e.time = time;
+    e.kind = kind;
+    e.serial = serial;
     if (n) {
-        e->note = n->note;
-        e->att = n->att;
-        e->patch = n->patch;
-        e->src[0] = n->src[0];
-        e->src[1] = n->src[1];
+        e.note = n->note;
+        e.att = n->att;
+        e.patch = n->patch;
+        e.src[0] = n->src[0];
+        e.src[1] = n->src[1];
     } else {
-        e->src[0] = e->src[1] = 0xFF;
+        e.src[0] = e.src[1] = 0xFF;
     }
+    if (!clock_add_event(&e))
+        problem("too many notes in one cycle", 0);
 }
 
 /* Voices and note-offs as they were before the last fill. */
@@ -342,11 +337,12 @@ void player_rewind(void)
     memcpy(player_voice_patch, saved.voice_patch, sizeof player_voice_patch);
 }
 
-void player_fill(cycle_events_t *out, uint16_t cycle)
+void player_fill(uint16_t cycle)
 {
     uint32_t base = (uint32_t)cycle << 16;
     uint32_t next = base + 0x10000;
 
+    overlay_load(OVERLAY_QUERY); /* (already there, unless just parsed) */
     memcpy(saved.voices, voices, sizeof voices);
     memcpy(saved.pending, pending, sizeof pending);
     saved.pending_count = pending_count;
@@ -360,12 +356,12 @@ void player_fill(cycle_events_t *out, uint16_t cycle)
     }
 
     /* Note-offs left over from earlier cycles that end in this one. */
+    off_count = 0;
     uint8_t keep = 0;
     for (uint8_t i = 0; i < pending_count; i++) {
         pending_off_t *p = &pending[i];
         if (p->t < next) {
-            uint16_t at = p->t > base ? (uint16_t)(p->t - base) : 0;
-            add_event(out, at, p->voice, 0, p->serial);
+            add_off(p->t > base ? (uint16_t)(p->t - base) : 0, p->voice, p->serial);
         } else {
             pending[keep++] = *p;
         }
@@ -379,7 +375,7 @@ void player_fill(cycle_events_t *out, uint16_t cycle)
         if (prog_patterns[i].muted)
             continue;
         uint8_t root = prog_patterns[i].root;
-        uint16_t period = pat_period(root);
+        uint16_t period = pat_period_memo(root);
         uint16_t residue = period ? (uint16_t)(cycle % period) : 0;
         const cache_slot_t *slot = period ? cache_find(i, residue) : 0;
         if (slot) {
@@ -394,6 +390,7 @@ void player_fill(cycle_events_t *out, uint16_t cycle)
                 n->att = c.att;
                 n->src[0] = c.src[0];
                 n->src[1] = c.src[1];
+                n->drum = c.drum;
             }
             continue;
         }
@@ -430,13 +427,15 @@ void player_fill(cycle_events_t *out, uint16_t cycle)
         uint8_t serial = ++vo->serial;
         vo->free_at = n->end;
         player_voice_patch[v] = n->patch;
-        add_event(out, (uint16_t)(n->t - base), EV_ON | v, n, serial);
+        player_voice_drum[v] = n->drum;
+        n->voice = v;
+        n->serial = serial;
 
         /* Drums ring out by themselves; other notes end with the event. */
-        if (PATCH_IS_DRUM(n->patch))
+        if (n->drum)
             continue;
         if (n->end < next) {
-            add_event(out, (uint16_t)(n->end - base), v, 0, serial);
+            add_off((uint16_t)(n->end - base), v, serial);
         } else if (pending_count < PENDING_MAX) {
             pending[pending_count].t = n->end;
             pending[pending_count].voice = v;
@@ -444,4 +443,15 @@ void player_fill(cycle_events_t *out, uint16_t cycle)
             pending_count++;
         }
     }
+
+    /* Out in time order: a note-off before a note-on at the same time. */
+    uint8_t j = 0;
+    for (uint8_t i = 0; i < count; i++) {
+        uint16_t t = (uint16_t)(notes[i].t - base);
+        for (; j < off_count && offs[j].time <= t; j++)
+            emit(offs[j].time, offs[j].voice, 0, offs[j].serial);
+        emit(t, EV_ON | notes[i].voice, &notes[i], notes[i].serial);
+    }
+    for (; j < off_count; j++)
+        emit(offs[j].time, offs[j].voice, 0, offs[j].serial);
 }

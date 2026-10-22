@@ -15,26 +15,41 @@ frames: 300
 
 ## Status
 
-Milestone 3: a live coding editor. Edit the code, press Ctrl+Enter, and
-the change plays from the next cycle. If the new code has an error, the
-old code keeps playing and the error is marked in red.
+Milestone 4: most of Strudel's everyday functions, on top of the live
+coding editor (milestone 3). Edit the code, press Ctrl+Enter, and the
+change plays from the next cycle. If the new code has an error, the old
+code keeps playing and the error is marked in red.
 
 ```js
 setcpm(30)
-$: s("bd(3,8), [~ sd]*2")
-$: s("hh*8").gain("[.5 1]*4")
-$: note("<[c2 c3]*4 [ab1 ab2]*4>").s("gm_synth_bass_1")
-$: note("<c4 eb4 g4 [bb4 c5]>(3,8)").s("gm_epiano1").gain(.7)
+$: s("bd(3,8,<0 2>), [~ sd]*2").every(4, x => x.ply(2))
+$: s("hh*8?").gain("[.5 1]*4")
+$: n("<0 3 5 [7 10]>*2").scale("C2:minor").s("gm_synth_bass_1")
+$: n("0 [2 4] <3 6> 7").scale("C4:minor").s("gm_epiano1")
+  .off(0.25, x => x.add(note(12))).gain(.6)
 ```
 
 **Mini-notation**: sequences, `~` rests, `[ ]`, `< >`, `,` stacks, `*`
 and `/` (also with patterns, as `*<2 3>`), `!`, `@`, `_`, euclid `(3,8,2)`
-(patterns allowed), `.` feet, `{ }%n` polymeter, `bd:2`. Not yet: `?` and
-`|` (random) and `..`.
+(patterns allowed), `.` feet, `{ }%n` polymeter, `bd:2`, `?` and `|`.
+Not yet: `..`.
 
 **Program**: `$:` patterns (`_$:` mutes one), `setcpm()`, `setcps()`,
-`s`/`sound`, `note`, `n`, `gain` (also chained, and as `"c e".note()`),
-`fast`, `slow`, `//` comments.
+`//` comments, and these functions:
+
+| | |
+|---|---|
+| Sound | `s`/`sound`, `note`, `n`, `gain` (also chained, and as `"c e".note()`) |
+| Time | `fast`, `slow`, `rev`, `late`, `early`, `ply` |
+| Changing | `every`/`firstOf`, `lastOf`, `off`, `echo` |
+| Values | `add`, `sub`, `scale` (major, minor, the modes, harmonic and melodic minor, pentatonic, minor pentatonic, blues, chromatic, whole tone) |
+| Structure | `struct`, `mask`, `euclid`, `euclidRot` |
+| Random | `degrade`, `degradeBy`, `sometimes`, `sometimesBy`, `often`, `rarely`, `almostNever`, `almostAlways` |
+| Combining | `stack`, `cat`/`slowcat`, `seq`/`fastcat`, `silence` |
+
+Functions given to others can be lambdas (`x => x.fast(2)`), calls
+(`fast(2)`) or names (`rev`). As in Strudel, `add` on a sound or note
+pattern needs `note(...)` or `n(...)`: `.add(note(12))`.
 
 **Sounds**: `bd`, `sd`, `hh`, `sine`, `triangle` (the default), `square`,
 `sawtooth`, and Strudel's General MIDI names (`gm_piano`,
@@ -47,9 +62,15 @@ highlights follow the text as you edit.
 
 The engine mirrors Strudel's own building blocks (`pure`, `stack`,
 `slowcat`, `fast`, `compress`/`fastGap`, `repeatCycles`, `struct`,
-`appLeft`) with exact fractions. `tests/ref` runs Strudel itself (from npm)
-to make the expected results, and the host tests check that RPStrudel
-gives the same events for 78 mini-notation cases and 19 program cases.
+`appLeft`, `squeezeJoin`...) with exact fractions. `tests/ref` runs
+Strudel itself (from npm) to make the expected results, and the host tests
+check that RPStrudel gives the same events for 78 mini-notation cases and
+57 program cases.
+
+The one deliberate difference is randomness: `?`, `|`, `degradeBy` and
+`sometimes` use RPStrudel's own random numbers, which repeat every 16
+cycles (that keeps random patterns as cheap as any other), so they choose
+differently from Strudel.
 
 ### Fitting a 6502
 
@@ -58,10 +79,15 @@ gives the same events for 78 mini-notation cases and 19 program cases.
   the numbers stay small however long it plays.
 - Notes for each part of a pattern's period are cached, so after the
   first time through, a cycle takes ~30 ms instead of ~400 ms.
-- Patches and sound names, the code text (an 8K gap buffer), the
-  playing program's backup during a parse, and the note cache all live in
-  XRAM.
-- Built with `-Oz`: the code is ~50K, and RAM is the limit.
+- **Overlays**: the parser (15K) and the queries (24K) are never needed at
+  the same time, so they share one region of RAM (`src/rpstrudel.ld`,
+  `src/overlay.h`). Each is a file in the ROM (`parse.ovl`, `query.ovl`,
+  copied out of the ELF by the build), read in when needed: the parser for
+  a Ctrl+Enter, then the queries again (~190 ms in all).
+- In XRAM: the patches and sound names, the code text (an 8K gap
+  buffer), the patterns (two banks, so a new program is parsed beside the
+  playing one), the note cache, and the clock's event buffers.
+- Built with `-Oz`.
 
 The screen shows the timer rate, the time to work out each cycle, how
 much of the stack was never used, and how many cycles were late (played
@@ -96,6 +122,7 @@ make -C tests/host        # pattern engine vs Strudel, on the Mac
 ./tools/rp6502-emu build/llvm-mos/release/RPStrudel.rp6502 --mute --script tests/smoke.script
 ./tools/rp6502-emu build/llvm-mos/release/RPStrudel.rp6502 --mute --script tests/editor.script
 ./tools/rp6502-emu build/llvm-mos/release/RPStrudel.rp6502 --mute --script tests/keys.script
+./tools/rp6502-emu build/llvm-mos/release/RPStrudel.rp6502 --mute --script tests/functions.script
 ```
 
 `tests/editor.script` types code, presses Ctrl+Enter, and checks the
@@ -103,6 +130,11 @@ screen through Ctrl+D: an update, a mistake that leaves the old code
 playing, a fix with the editing keys, an unknown sound, and Esc.
 `tests/keys.script` sends arrow sequences split across frames (as real
 hardware can) and holds an arrow key down, checking that no cycle is late.
+`tests/functions.script` types code with the milestone 4 functions, and an
+unknown scale.
+
+The host tests also check the random functions (`tests/random_cases.txt`):
+how many events they keep, and that they repeat every 16 cycles.
 
 To add a case, put it in `tests/mini_cases.txt` or `tests/prog_cases.txt`
 and remake the expected results with Strudel:
@@ -116,9 +148,14 @@ cd tests/ref && npm install && node --import ./stub.mjs gen.mjs
 | File | What it does |
 |---|---|
 | `src/rat.c` | 16-bit exact fractions |
-| `src/pattern.c` | Pattern nodes and queries (Strudel's primitives), periods |
-| `src/mini.c` | Mini-notation parser |
-| `src/prog.c` | Program parser (`$:` lines, functions, method chains) |
+| `src/pool.c` | Where the patterns live: XRAM, or an array on the Mac |
+| `src/pattern.c` | Pattern nodes and values in the pool, two banks |
+| `src/query.c` | Queries (Strudel's primitives), periods, randomness (overlay) |
+| `src/scales.c` | Scale names and notes |
+| `src/mini.c` | Mini-notation parser (overlay) |
+| `src/prog.c` | Program parser: `$:` lines, functions, lambdas (overlay) |
+| `src/overlay.c` | Reads an overlay in from the ROM |
+| `src/rpstrudel.ld` | Linker script with the overlay region |
 | `src/player.c` | Events to OPL2 notes: sounds, voices, note-offs, cache |
 | `src/clock.c` | VIA timer interrupt, cycle phase, event buffers |
 | `src/opl.c` | OPL2 registers (XRAM portal 1, interrupt only) |

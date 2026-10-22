@@ -92,13 +92,15 @@ typedef struct
     keyboard_t keyboard;
     mode1_config_t text_config;
     text_cell_t text[TEXT_ROWS][TEXT_COLS];
-    uint8_t patches[3584]; /* PATCH_XRAM_SIZE: patches and names (patches.h) */
+    uint8_t patches[4096]; /* PATCH_XRAM_SIZE: patches and names (patches.h) */
     uint8_t edit[8192];    /* EDIT_CAP: the program text, a gap buffer (editbuf.h) */
-    uint8_t backup[4096];  /* the playing program while a new one is parsed (player.c) */
+    uint8_t pool[13312];   /* POOL_XRAM_SIZE: pattern nodes, kids and values, two banks (pattern.c) */
     uint8_t cache[5632];   /* CACHE_XRAM_SIZE: notes worked out already (player.c) */
+    uint8_t events[2304];  /* the clock's two event buffers (clock.c) */
 } xram_layout_t;
 
 #define CACHE_XRAM_SIZE 5632
+#define POOL_XRAM_SIZE 13312
 
 #define XRAM_OPL offsetof(xram_layout_t, opl)
 #define XRAM_KEYBOARD offsetof(xram_layout_t, keyboard)
@@ -106,7 +108,8 @@ typedef struct
 #define XRAM_TEXT offsetof(xram_layout_t, text)
 #define XRAM_PATCHES offsetof(xram_layout_t, patches)
 #define XRAM_EDIT offsetof(xram_layout_t, edit)
-#define XRAM_BACKUP offsetof(xram_layout_t, backup)
+#define XRAM_POOL offsetof(xram_layout_t, pool)
+#define XRAM_EVENTS offsetof(xram_layout_t, events)
 #define XRAM_CACHE offsetof(xram_layout_t, cache)
 
 _Static_assert((XRAM_OPL & 0xFF) == 0, "The OPL2 registers must start on a page boundary.");

@@ -26,11 +26,12 @@ static void print_rat(FILE *f, const rat_t *r, long k)
 
 static void print_atom(FILE *f, const char *src, uint8_t a)
 {
-    const pat_atom_t *at = &pat_atoms[a];
-    if (at->is_num)
-        fprintf(f, "%.15g", (double)at->num.n / (double)at->num.d);
+    pat_atom_t at;
+    pat_atom_get(a, &at);
+    if (at.is_num)
+        fprintf(f, "%.15g", (double)at.num.n / (double)at.num.d);
     else
-        fprintf(f, "%.*s", at->len, src + at->pos);
+        fprintf(f, "%.*s", at.len, src + at.pos);
 }
 
 typedef struct
@@ -46,7 +47,6 @@ static int cmp_row(const void *pa, const void *pb)
     return c ? c : strcmp(a->line, b->line);
 }
 
-static const char *const ctl_names[PAT_CTLS] = {"s", "note", "n", "gain"};
 
 /* The parsers read the current case's line through text_at. */
 static const char *text;
@@ -94,6 +94,42 @@ static int check_period(uint8_t root)
     return 0;
 }
 
+/* random mode: each line is "pattern | min max" */
+static int random_case(char *line)
+{
+    char *bar = strrchr(line, '|');
+    int lo, hi;
+    if (!bar || sscanf(bar + 1, "%d %d", &lo, &hi) != 2) {
+        printf("! bad line: %s\n", line);
+        return 1;
+    }
+    uint16_t to = (uint16_t)(bar - line);
+    while (to > 0 && line[to - 1] == ' ')
+        to--;
+    pat_reset();
+    text = line;
+    text_len = to;
+    uint8_t root = prog_parse_expr(0, to);
+    if (root != PAT_NONE)
+        pat_period(root);
+    if (root == PAT_NONE) {
+        printf("! parse error: %s in %.*s\n", pat_error, to, line);
+        return 1;
+    }
+    int total = 0;
+    for (int32_t c = 0; c < 64; c++) {
+        int32_t base;
+        total += pat_query_onsets(root, c, &base);
+    }
+    /* querying at cycle mod period (16 for random patterns) must give what a
+     * direct query gives */
+    int fails = check_period(root);
+    int ok = !fails && total >= lo && total <= hi;
+    printf("%s %.*s: %d onsets in 64 cycles (want %d-%d)%s\n", ok ? "ok" : "!", to, line, total, lo, hi,
+           fails ? ", not repeating" : "");
+    return !ok;
+}
+
 int main(int argc, char **argv)
 {
     if (argc < 3) {
@@ -101,6 +137,7 @@ int main(int argc, char **argv)
         return 2;
     }
     int prog = strcmp(argv[1], "prog") == 0;
+    int random = strcmp(argv[1], "random") == 0;
     const char *path = argv[2];
     FILE *in = fopen(path, "r");
     if (!in) {
@@ -117,6 +154,10 @@ int main(int argc, char **argv)
             s++;
         if (!*s || *s == '#')
             continue;
+        if (random) {
+            failures += random_case(s);
+            continue;
+        }
         uint16_t from = (uint16_t)(s - src);
         uint16_t to = (uint16_t)len;
         while (to > from && src[to - 1] == ' ')
@@ -127,6 +168,8 @@ int main(int argc, char **argv)
         text = src;
         text_len = (uint16_t)len;
         uint8_t root = prog ? prog_parse_expr(from, to) : mini_parse(from, to);
+        if (root != PAT_NONE)
+            pat_period(root); /* as the program does after parsing */
         if (root == PAT_NONE) {
             printf("! parse error at %u: %s\n", (prog ? prog_error_pos : mini_error_pos) - from, pat_error);
             failures++;
@@ -155,11 +198,25 @@ int main(int argc, char **argv)
                 fputc(' ', m);
                 print_rat(m, &h->t[WE], shift);
                 if (prog) {
-                    for (int k = 0; k < PAT_CTLS; k++) {
-                        if (h->ctl[k] == PAT_NONE)
-                            continue;
-                        fprintf(m, " %s=", ctl_names[k]);
-                        print_atom(m, src, h->ctl[k]);
+                    /* s as its text; note and n as numbers (MIDI); gain */
+                    if (h->ctl[CTL_S] != PAT_NONE) {
+                        fprintf(m, " s=");
+                        print_atom(m, src, h->ctl[CTL_S]);
+                    }
+                    if (h->note != NO_VAL)
+                        fprintf(m, " note=%d", h->note);
+                    if (h->n != NO_VAL)
+                        fprintf(m, " n=%d", h->n);
+                    if (h->gain != 0xFF)
+                        fprintf(m, " gain=%.15g", h->gain / 64.0);
+                    if (h->ctl[CTL_S] == PAT_NONE && h->note == NO_VAL && h->n == NO_VAL && h->gain == 0xFF) {
+                        /* a plain pattern */
+                        if (h->val != NO_VAL)
+                            fprintf(m, " %d", h->val);
+                        else {
+                            fputc(' ', m);
+                            print_atom(m, src, h->atom);
+                        }
                     }
                 } else {
                     fputc(' ', m);

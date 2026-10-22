@@ -19,15 +19,17 @@ bool player_load(uint16_t len);
  * is filled again (with a new program). */
 void player_rewind(void);
 
-/* The clock's fill callback. */
-void player_fill(cycle_events_t *out, uint16_t cycle);
+/* Works out a cycle and gives its events to the clock (clock_add_event). */
+void player_fill(uint16_t cycle);
 
 /* A problem found while playing (an unknown sound, a pattern that grew too
  * big), with where it is in the code; NULL when there is none. */
 extern const char *player_error;
 extern uint16_t player_error_pos;
 
-/* The patch each voice was last given, for the screen. */
+/* The patch each voice was last given, and whether it was a drum, for the
+ * screen. */
 extern uint8_t player_voice_patch[];
+extern bool player_voice_drum[];
 
 #endif

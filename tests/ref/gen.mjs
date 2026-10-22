@@ -5,6 +5,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { mini } from '@strudel/mini';
 import * as core from '@strudel/core';
+import '@strudel/tonal';
 
 const here = new URL('.', import.meta.url);
 const cases = readFileSync(new URL('../mini_cases.txt', here), 'utf8')
@@ -35,20 +36,32 @@ const progCases = readFileSync(new URL('../prog_cases.txt', here), 'utf8')
   .split('\n')
   .map((l) => l.trim())
   .filter((l) => l && !l.startsWith('#'));
-const names = ['s', 'sound', 'note', 'n', 'gain'];
-const keys = ['s', 'note', 'n', 'gain'];
+const names = ['s', 'sound', 'note', 'n', 'gain', 'stack', 'cat', 'seq', 'slowcat', 'fastcat'];
+// note and n as MIDI numbers, gain to the 64ths RPStrudel keeps
+const fmt = {
+  s: (v) => v,
+  note: (v) => (typeof v === 'string' ? core.noteToMidi(v) : Math.round(v)),
+  n: (v) => Math.round(v),
+  gain: (v) => Math.min(254, Math.floor(v * 64)) / 64,
+};
+const keys = Object.keys(fmt);
+const plain = (v) => (typeof v === 'string' && core.tokenizeNote(v).length && /\d/.test(v) ? core.noteToMidi(v) : v);
 const progOut = [];
 for (const c of progCases) {
   progOut.push(`= ${c}`);
   const js = c.replace(/"([^"]*)"/g, (_, m) => `m(${JSON.stringify(m)})`);
-  const pat = new Function('m', ...names, `return ${js};`)(mini, ...names.map((k) => core[k]));
+  // every Strudel function in scope, as in the REPL
+  const pat = new Function('m', 'core', `with (core) { return ${js}; }`)(mini, core);
   for (let cyc = 0; cyc < 4; cyc++) {
     const lines = pat
       .queryArc(cyc, cyc + 1)
       .filter((h) => h.hasOnset())
       .map((h) => {
         const v = h.value;
-        const fields = keys.filter((k) => v[k] !== undefined).map((k) => ` ${k}=${v[k]}`).join('');
+        const fields =
+          typeof v === 'object'
+            ? keys.filter((k) => v[k] !== undefined).map((k) => ` ${k}=${fmt[k](v[k])}`).join('')
+            : ` ${plain(v)}`;
         return { b: h.whole.begin, line: `${cyc} ${frac(h.whole.begin)} ${frac(h.whole.end)}${fields}` };
       })
       .sort((x, y) => x.b.compare(y.b) || (x.line < y.line ? -1 : x.line > y.line ? 1 : 0));

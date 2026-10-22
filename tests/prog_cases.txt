@@ -21,3 +21,61 @@ note("c e").fast(2).s("x y z")
 n("0 2 4").s("piano")
 note(60).s("sine")
 s("bd").n("<1 2 3>")
+
+# scales
+n("0 2 4 7").scale("C:major")
+n("0 2 -1").scale("C4:minor")
+n("0 1 2 3 4 5").scale("A:minor:pentatonic")
+n("<0 2> 4").scale("<C:major D:dorian>")
+n("0 1 2 3 4 5 6 7").scale("E:phrygian")
+"0 2 4".scale("C:major").note()
+n("0 2".add(1)).scale("C:major")
+n("0 2").scale("C:major").add(note(12))
+
+# arithmetic
+note("c e").add(note("<0 7>"))
+note("c e g").sub(note(12))
+"0 2".add("<10 20>").note()
+"c e".add(12).note()
+n("0 2 4").add(n("<0 1>")).s("piano")
+
+# time
+s("a b c").rev()
+s("a [b c]").rev()
+note("<c e> g").rev()
+s("a b").ply(2)
+s("a [b c]").ply("3")
+s("a b").late(0.25)
+s("a b").early(0.25)
+s("a b c d").late("0.125")
+
+# every, off, echo
+s("a b").every(2, x => x.fast(2))
+s("a b").firstOf(3, x => x.rev())
+s("a b").lastOf(3, rev)
+s("a b").every(2, fast(2))
+s("a").echo(3, 0.25, 0.5)
+note("c").off(0.25, x => x.add(note(12)))
+note("c e").every(2, x => x.add(note(12))).rev()
+
+# structure
+s("a").struct("x ~ x x")
+s("a b").struct("x*4")
+s("a*4").mask("1 0 1 1")
+s("a*4").mask("<1 [0 1]>")
+s("a*8").euclid(3,8)
+s("a").euclidRot(3,8,2)
+
+# combining
+stack(s("a"), note("c e"))
+cat(s("a"), s("b c"))
+seq(s("a"), s("b c"))
+stack(s("a"), s("b")).fast(2)
+
+# transpose (notes with octaves: Strudel keeps octave-less names as pitch classes)
+note("60 62").trans(5)
+note("c3 e3").transpose(-12)
+note("c4 e4").trans("3M")
+note("c4 e4 g4").trans("<0 5P -2m>")
+n("0 2").scale("C:major").trans(-12)
+"c3 e3".trans(12).note()

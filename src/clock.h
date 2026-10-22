@@ -14,7 +14,7 @@
  * plays again. */
 
 #define CLOCK_HZ 1000u
-#define EV_MAX 80
+#define EV_MAX 128
 
 /* Event kinds: the high bit is note-on, the low nibble the voice. */
 #define EV_ON 0x80
@@ -31,13 +31,6 @@ typedef struct
     uint8_t src[2]; /* source tokens to highlight, 0xFF for none */
 } event_t;
 
-/* Fill side: the main loop builds the next cycle here. */
-typedef struct
-{
-    event_t ev[EV_MAX];
-    uint8_t count;
-} cycle_events_t;
-
 void clock_init(void);
 
 /* Tempo in tenths of a cycle per minute (300 = 30 cpm = Strudel's
@@ -45,8 +38,12 @@ void clock_init(void);
 void clock_set_cpm10(uint16_t cpm10);
 uint16_t clock_cpm10(void);
 
-/* The program provides this: it fills out with the events of a cycle. */
-void clock_fill(cycle_events_t *out, uint16_t cycle);
+/* The program provides this: it adds the events of a cycle, in time order
+ * (note-offs before note-ons at the same time), with clock_add_event. */
+void clock_fill(uint16_t cycle);
+
+/* False when the cycle's buffer is full. */
+bool clock_add_event(const event_t *e);
 
 /* Start from cycle 0 (filling it before the first tick), or stop and
  * silence every voice. */
@@ -79,8 +76,11 @@ uint16_t clock_take_voice_hits(void);
 /* The shortcut keys, watched by the interrupt (125 times a second) so a
  * press is not missed while the main loop is busy working out a cycle. */
 #define CLOCK_KEY_EVAL 0x01 /* Ctrl or Alt + Enter */
-#define CLOCK_KEY_STOP 0x02 /* Ctrl or Alt + period, or Escape */
+#define CLOCK_KEY_STOP 0x02 /* Ctrl or Alt + period */
 #define CLOCK_KEY_DUMP 0x04 /* Ctrl + D */
+#define CLOCK_KEY_ESC 0x08  /* Escape */
+#define CLOCK_KEY_SAVE 0x10 /* Ctrl + S */
+#define CLOCK_KEY_OPEN 0x20 /* Ctrl + O */
 uint8_t clock_take_keys(void);
 
 /* How many Ctrl+Enter presses there were: each also typed an Enter that

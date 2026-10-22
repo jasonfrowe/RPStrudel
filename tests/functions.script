@@ -1,0 +1,56 @@
+# Milestone 4 functions, typed into the editor on the Picocomputer (this
+# also runs the parser and query overlays). Run with:
+#   ./tools/rp6502-emu build/llvm-mos/release/RPStrudel.rp6502 --mute --script tests/functions.script
+
+run 60
+key pagedown
+key pagedown
+key end
+key enter
+type "$: stack(s(\"bd*2\"), note(\"c4 e4\").every(2, rev)).sometimes(x => x.gain(0.5))"
+run 40
+key enter
+type "$: cat(s(\"sd\"), s(\"hh*2\")).late(0.125).struct(\"x ~ x x\")"
+run 40
+key enter
+type "$: note(\"<c3 g3>\").echo(3, 0.125, 0.7).mask(\"1 0 1 1\").s(\"gm_vibraphone\")"
+run 40
+key enter
+type "$: s(\"oh cp [lt mt ht] rim, cb cr rd [sh tb perc]\")"
+run 40
+key enter
+type "$: note(\"c4 e4\").trans(\"<0 3M>\").s(\"sine\")"
+run 40
+press 0xE0
+press 0x28
+run 3
+release 0x28
+release 0xE0
+run 200
+press 0xE0
+press 0x07
+run 2
+release 0x07
+release 0xE0
+run 120
+expect "updated"
+expect-not "error"
+
+# an unknown scale is a parse error: the old code plays on
+key enter
+type "$: n(\"0 2\").scale(\"C:nope\")"
+run 40
+press 0xE0
+press 0x28
+run 3
+release 0x28
+release 0xE0
+run 60
+press 0xE0
+press 0x07
+run 2
+release 0x07
+release 0xE0
+run 120
+expect "not changed"
+expect "error: unknown scale"

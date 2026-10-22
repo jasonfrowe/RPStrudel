@@ -320,6 +320,15 @@ void editor_init(uint8_t x, uint8_t y, uint8_t cols, uint8_t rows, const char *t
     need_all = true;
 }
 
+void editor_reset(void)
+{
+    edit_set_cursor(0);
+    top = left = want_col = 0;
+    top_line = 1;
+    mark = NO_POS;
+    need_all = true;
+}
+
 void editor_set_lit(const uint8_t *frames)
 {
     lit = frames;
@@ -398,8 +407,12 @@ static uint16_t draw_row(uint8_t r, uint16_t p)
         /* tokens playing now */
         if (lit) {
             for (uint8_t a = 0; a < pat_atom_count; a++) {
-                const pat_atom_t *at = &pat_atoms[a];
-                if (!lit[a] || !at->len || at->pos + at->len <= p || at->pos >= end)
+                if (!lit[a])
+                    continue;
+                pat_atom_t atom;
+                pat_atom_get(a, &atom);
+                const pat_atom_t *at = &atom;
+                if (!at->len || at->pos + at->len <= p || at->pos >= end)
                     continue;
                 for (uint16_t q = at->pos; q < at->pos + at->len; q++) {
                     uint16_t col = q - p;

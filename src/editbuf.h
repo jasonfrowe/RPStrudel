@@ -19,6 +19,12 @@ bool edit_insert(char c);  /* at the cursor; false when full */
 bool edit_backspace(void); /* the character before the cursor */
 bool edit_delete(void);    /* the character at the cursor */
 
+/* The text to an open file, and from one (replacing what was here;
+ * dropping \r, tabs as two spaces). False on an error, or for edit_load
+ * when the file was too big (what fit is kept). */
+bool edit_save(int fd);
+bool edit_load(int fd);
+
 /* The line starting at pos: up to max characters into buf (no newline),
  * returns how many; *next is where the next line starts, or 0xFFFF if this
  * is the last. Fast: one sequential pass through XRAM. */

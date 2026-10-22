@@ -5,6 +5,7 @@
   "description": "Runs Strudel's own engine to make the expected results for RPStrudel's host tests.",
   "dependencies": {
     "@strudel/core": "1.2.6",
-    "@strudel/mini": "1.2.6"
+    "@strudel/mini": "1.2.6",
+    "@strudel/tonal": "1.2.6"
   }
 }

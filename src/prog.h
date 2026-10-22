@@ -15,7 +15,7 @@
  * Functions: s/sound, note, n, gain (also chained), fast, slow, and
  * "mini".note() style calls on strings. */
 
-#define PROG_PATTERNS 8
+#define PROG_PATTERNS 12
 
 typedef struct
 {

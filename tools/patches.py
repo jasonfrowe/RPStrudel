@@ -156,11 +156,27 @@ SYNTH = [
     [0x21, 0x2A, 0xF0, 0x0F, 0x00, 0x21, 0x00, 0xF0, 0x05, 0x00, 0x00],  # triangle: a little modulation for upper harmonics
 ]
 
-# Sound names and the patch each plays. The General MIDI names are
+# 0x85-0x86: more drums, made from the kit's hat (FF) with longer decays.
+# New, so not yet tried by ear.
+DRUMS = [
+    [0x05, 0x00, 0xF0, 0x75, 0x00, 0x00, 0x00, 0xF5, 0xE5, 0x00, 0x0E],  # oh: open hat
+    [0x03, 0x00, 0xF0, 0x73, 0x00, 0x00, 0x00, 0xF3, 0xE3, 0x00, 0x0F],  # cr: crash
+]
+
+# Drum names: the patch and the fixed note each plays. Strudel's usual
+# drum machine names, made from the good patches (and the two above).
+DRUM_NAMES = [
+    ("bd", 0x80, 60), ("sd", 0x81, 60), ("hh", 0x82, 60),
+    ("oh", 0x85, 60), ("cr", 0x86, 55), ("rd", 0x82, 72),
+    ("sh", 0x82, 84), ("tb", 0x82, 79), ("cp", 0x81, 67),
+    ("lt", 0x75, 45), ("mt", 0x75, 50), ("ht", 0x75, 55),
+    ("rim", 0x73, 76), ("cb", 0x71, 68), ("perc", 0x76, 60),
+]
+
+# Other sound names and the patch each plays. The General MIDI names are
 # Strudel's (@strudel/soundfonts gm.mjs). The OPL2 has no square or saw
 # wave, so those use the General MIDI lead patches.
 NAMES = [
-    ("bd", 0x80), ("sd", 0x81), ("hh", 0x82),
     ("sine", 0x83), ("triangle", 0x84), ("square", 0x50), ("sawtooth", 0x51),
     ("gm_piano", 0x00),
     ("gm_epiano1", 0x04),
@@ -292,11 +308,12 @@ NAMES = [
 
 def main(out):
     data = bytearray()
-    for p in GM + KIT + SYNTH:
+    for p in GM + KIT + SYNTH + DRUMS:
         assert len(p) == 11
         data += bytes(p)
-    for name, pid in NAMES:
-        data += bytes([len(name)]) + name.encode() + bytes([pid])
+    # each name: length, characters, patch, fixed note (0 for none)
+    for name, pid, note in DRUM_NAMES + [(n, p, 0) for n, p in NAMES]:
+        data += bytes([len(name)]) + name.encode() + bytes([pid, note])
     data += b"\0"
     with open(out, "wb") as f:
         f.write(data)

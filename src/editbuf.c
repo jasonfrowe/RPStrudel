@@ -1,6 +1,7 @@
 #include "editbuf.h"
 
 #include <rp6502.h>
+#include <unistd.h>
 
 #include "text.h"
 #include "xram.h"
@@ -108,4 +109,44 @@ uint8_t edit_read_line(uint16_t pos, char *buf, uint8_t max, uint16_t *next)
     }
     *next = 0xFFFF; /* the last line */
     return n;
+}
+
+bool edit_save(int fd)
+{
+    /* the text before the gap, then after it, straight from XRAM */
+    uint16_t parts[2][2] = {{XRAM_EDIT, gap}, {XRAM_EDIT + gap + GAP_LEN, len - gap}};
+    for (uint8_t i = 0; i < 2; i++) {
+        uint16_t at = parts[i][0], left = parts[i][1];
+        while (left) {
+            uint16_t n = left > 0x1000 ? 0x1000 : left;
+            if (write_xram(at, n, fd) != (int)n)
+                return false;
+            at += n;
+            left -= n;
+        }
+    }
+    return true;
+}
+
+bool edit_load(int fd)
+{
+    static char chunk[128];
+    edit_clear();
+    int got;
+    while ((got = read(fd, chunk, sizeof chunk)) > 0) {
+        for (int i = 0; i < got; i++) {
+            char c = chunk[i];
+            if (c == '\r')
+                continue; /* Windows line endings */
+            if (c == '\t') {
+                if (!edit_insert(' ') || !edit_insert(' '))
+                    return false;
+                continue;
+            }
+            if (!edit_insert(c))
+                return false; /* too big: keeps what fit */
+        }
+    }
+    edit_set_cursor(0);
+    return got >= 0;
 }

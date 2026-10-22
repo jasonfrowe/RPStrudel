@@ -2,6 +2,12 @@
 
 #include "pattern.h"
 #include "text.h"
+#include "overlay.h"
+
+/* Part of the parser overlay (overlay.h). */
+#ifdef __mos__
+#pragma clang section text = ".ovl_parse"
+#endif
 
 /* A recursive descent parser that follows Strudel's krill.pegjs grammar
  * rule for rule, building pattern nodes the way mini.mjs does:
@@ -16,7 +22,8 @@
  *
  * Every sequence is a stepcat (Strudel always takes that branch because
  * each element carries a weight), and "<...>" is each sequence slowed by
- * its own weight. Not yet: "?" and "|" (random), and "..". */
+ * its own weight. "?" and "|" use RPStrudel's own random numbers, so they
+ * choose differently from Strudel. Not yet: "..". */
 
 #define MAX_OPS 6
 #define PSTACK 32
@@ -139,7 +146,7 @@ static uint8_t fastc(uint8_t k, const rat_t *f)
         return k;
     uint8_t n = unary(N_FASTC, k);
     if (n != PAT_NONE)
-        pat_nodes[n].r1 = *f;
+        pat_set_r1(n, f);
     return n;
 }
 
@@ -152,13 +159,7 @@ static uint8_t fastc_int(uint8_t k, int32_t f)
 
 static bool const_num(uint8_t node, rat_t *out)
 {
-    if (node == PAT_NONE || pat_nodes[node].type != N_ATOM)
-        return false;
-    pat_atom_t *a = &pat_atoms[pat_nodes[node].kids];
-    if (!a->is_num)
-        return false;
-    *out = a->num;
-    return true;
+    return pat_const_num(node, out);
 }
 
 /* ---- grammar ---- */
@@ -297,7 +298,7 @@ static uint8_t slice(void)
                     return PAT_NONE;
                 pat_add_kid(f, seqs[i].node);
                 pat_add_kid(f, steps_node);
-                pat_nodes[f].r1 = inv;
+                pat_set_r1(f, &inv);
                 seqs[i].node = f;
             }
         }
@@ -322,23 +323,27 @@ static uint8_t slice(void)
     uint8_t n = pat_new_node(N_ATOM);
     if (a == PAT_NONE || n == PAT_NONE)
         return PAT_NONE;
-    pat_atom_t *at = &pat_atoms[a];
-    at->pos = start;
-    at->len = len;
+    pat_atom_t at;
+    pat_atom_get(a, &at);
+    at.pos = start;
+    at.len = len;
     char buf[24];
     uint8_t got = text_copy(start, len, buf, sizeof buf);
-    at->is_num = len < sizeof buf && mini_decimal(buf, got, &at->num);
-    pat_nodes[n].kids = a;
+    at.is_num = len < sizeof buf && mini_decimal(buf, got, &at.num);
+    at.ival = mini_ival(at.is_num ? &at.num : 0, buf, got);
+    pat_atom_put(a, &at);
+    pat_set_atom(n, a);
     return n;
 }
 
-enum { OP_FAST, OP_SLOW, OP_REPLICATE, OP_EUCLID, OP_TAIL };
+enum { OP_FAST, OP_SLOW, OP_REPLICATE, OP_EUCLID, OP_TAIL, OP_DEGRADE };
 
 typedef struct
 {
     uint8_t type;
-    uint8_t a, b, c;
+    uint8_t a, b, c; /* argument nodes; for OP_DEGRADE, a is the seed */
     int16_t reps;
+    rat_t amount; /* OP_DEGRADE */
 } op_t;
 
 /* The pattern given to an op as an argument, as Strudel's enter(element):
@@ -369,7 +374,8 @@ static uint8_t apply_op(uint8_t node, const op_t *op)
                 return n;
             pat_add_kid(n, node);
             pat_add_kid(n, op->a);
-            pat_nodes[n].r2.n = op->type == OP_SLOW;
+            rat_t flag = {op->type == OP_SLOW, 1};
+            pat_set_r2(n, &flag);
             return n;
         }
     case OP_REPLICATE: {
@@ -378,7 +384,9 @@ static uint8_t apply_op(uint8_t node, const op_t *op)
         uint8_t n = unary(N_REPEAT, node);
         if (n == PAT_NONE)
             return n;
-        rat_set_int(&pat_nodes[n].r1, op->reps);
+        rat_t reps;
+        rat_set_int(&reps, op->reps);
+        pat_set_r1(n, &reps);
         return fastc_int(n, op->reps);
     }
     case OP_EUCLID: {
@@ -398,6 +406,15 @@ static uint8_t apply_op(uint8_t node, const op_t *op)
             return n;
         pat_add_kid(n, node);
         pat_add_kid(n, op->a);
+        return n;
+    }
+    case OP_DEGRADE: {
+        uint8_t n = unary(N_DEGRADE, node);
+        if (n == PAT_NONE)
+            return n;
+        rat_t seed = {op->a, 1};
+        pat_set_r1(n, &op->amount);
+        pat_set_r2(n, &seed);
         return n;
     }
     }
@@ -510,8 +527,16 @@ static seq_t element(void)
             continue;
         }
         if (c == '?') {
-            fail("? (random) is not supported yet");
-            return r;
+            /* degradeBy, half the time unless given (RPStrudel's own random
+             * numbers, not Strudel's) */
+            P++;
+            ops[nops].type = OP_DEGRADE;
+            rat_t half = {1, 2};
+            ops[nops].amount = half;
+            number(&ops[nops].amount);
+            ops[nops].a = pat_seed++;
+            nops++;
+            continue;
         }
         if (c == '.' && peek2() == '.') {
             fail(".. is not supported yet");
@@ -560,6 +585,18 @@ static seq_t sequence(void)
         r.node = els[0].node;
         return r;
     }
+    /* Equal shares (the usual case): one N_SEQ node. */
+    bool equal = true;
+    for (uint8_t i = 1; i < n; i++)
+        if (!rat_eq(&els[i].weight, &els[0].weight))
+            equal = false;
+    if (equal) {
+        uint8_t sq = pat_new_node(N_SEQ);
+        for (uint8_t i = 0; i < n && sq != PAT_NONE; i++)
+            pat_add_kid(sq, els[i].node);
+        r.node = sq;
+        return r;
+    }
     /* A node's kids must be next to each other in pat_kids, so make the
      * squeezed elements before the stack that holds them. */
     rat_t begin = R0;
@@ -569,8 +606,11 @@ static seq_t sequence(void)
         uint8_t c = unary(N_COMPRESS, els[i].node);
         if (c == PAT_NONE)
             return r;
-        rat_div(&pat_nodes[c].r1, &begin, &r.weight);
-        rat_div(&pat_nodes[c].r2, &end, &r.weight);
+        rat_t slot;
+        rat_div(&slot, &begin, &r.weight);
+        pat_set_r1(c, &slot);
+        rat_div(&slot, &end, &r.weight);
+        pat_set_r2(c, &slot);
         els[i].node = c;
         begin = end;
     }
@@ -591,11 +631,7 @@ static uint8_t stack_or_choose(void)
     }
     ws();
     char c = peek();
-    if (c == '|') {
-        psp = base;
-        return fail("| (random choice) is not supported yet");
-    }
-    if (c != ',' && c != '.') {
+    if (c != ',' && c != '.' && c != '|') {
         psp = base;
         return head.node;
     }
@@ -613,6 +649,16 @@ static uint8_t stack_or_choose(void)
     psp = base;
     if (c == ',')
         return stack_of(seqs, n);
+    if (c == '|') {
+        /* one picked at random each cycle */
+        uint8_t pick = pat_new_node(N_RANDCAT);
+        for (uint8_t i = 0; i < n && pick != PAT_NONE; i++)
+            pat_add_kid(pick, seqs[i].node);
+        rat_t seed = {pat_seed++, 1};
+        if (pick != PAT_NONE)
+            pat_set_r1(pick, &seed);
+        return pick;
+    }
     /* feet: fastcat of the sequences */
     uint8_t cat = pat_new_node(N_SLOWCAT);
     for (uint8_t i = 0; i < n && cat != PAT_NONE; i++)
@@ -635,6 +681,22 @@ uint8_t mini_parse(uint16_t from, uint16_t to)
     if (P != END)
         return fail("unexpected character");
     return root;
+}
+
+int8_t mini_ival(const rat_t *num, const char *text, uint8_t len)
+{
+    int16_t v;
+    if (num) {
+        /* rounded */
+        v = (int16_t)(((int32_t)num->n * 2 + num->d) / (2 * (int32_t)num->d));
+        if (num->n < 0 && ((int32_t)num->n * 2 + num->d) % (2 * num->d))
+            v--; /* floor for negatives */
+    } else {
+        v = mini_note_number(text, len);
+        if (v < 0)
+            return NO_VAL;
+    }
+    return v < -127 ? -127 : v > 127 ? 127 : (int8_t)v;
 }
 
 int16_t mini_note_number(const char *s, uint8_t len)
