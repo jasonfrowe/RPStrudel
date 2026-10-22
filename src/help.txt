@@ -1,2 +1,6 @@
-This information is displayed with the HELP and INFO monitor commands.
-Please change it to suit your project.
+RPSTRUDEL
+Strudel-style live coding for the Picocomputer's OPL2.
+
+SPACE  play / stop
+- =    tempo down / up (cycles per minute)
+ESC    hush

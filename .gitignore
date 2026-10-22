@@ -6,3 +6,8 @@ __pycache__
 /tools/rp6502-emu.*
 /compile_commands.json
 /.cache
+/tests/ref/node_modules
+/tests/host/test_mini
+/tests/host/bench
+/tests/host/*.dSYM
+/tests/host/*_actual.txt

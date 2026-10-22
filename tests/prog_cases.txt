@@ -1,0 +1,23 @@
+# Program expressions (the part after "$:"). ref/gen.mjs evaluates each in
+# Strudel and writes the onsets of cycles 0-3, with their controls, to
+# prog_expected.txt.
+
+s("bd sd")
+s("bd:2 sd:1")
+note("c e g")
+note("c e").s("piano")
+note("c e g a").s("<piano bass>")
+s("bd*4").gain("1 .5")
+note("<c a>(3,8)").s("sine").gain(.8)
+s("bd sd").note("c [e g]")
+note("c*4").s("bd sd")
+s("hh*8").fast(2)
+s("bd sd").slow(2)
+note("c e").fast("<1 2>")
+note("c e").s("x").fast(2)
+note("c e").fast(2).s("x y z")
+"c e g".note()
+"<c e>*2".note().s("tri")
+n("0 2 4").s("piano")
+note(60).s("sine")
+s("bd").n("<1 2 3>")
