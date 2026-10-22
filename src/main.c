@@ -264,11 +264,12 @@ static void draw_title(void)
 
 static void draw_status(void)
 {
+    /* (all of the left half: the save prompt was here) */
+    screen_fill(0, STATUS_Y, 44, ' ', COL_WHITE, COL_PANEL);
     screen_text(2, STATUS_Y, "Ln", COL_GREY, COL_PANEL);
     draw_u16(5, STATUS_Y, editor_line(), 4, COL_WHITE, COL_PANEL);
     screen_text(11, STATUS_Y, "Col", COL_GREY, COL_PANEL);
     draw_u16(15, STATUS_Y, editor_col(), 3, COL_WHITE, COL_PANEL);
-    screen_fill(19, STATUS_Y, 24, ' ', COL_WHITE, COL_PANEL);
     screen_text(20, STATUS_Y, files_name(), COL_GREY, COL_PANEL);
     if (files_modified)
         screen_text(20 + (uint8_t)strlen(files_name()), STATUS_Y, "*", COL_YELLOW, COL_PANEL);
@@ -415,9 +416,12 @@ static void dump_screen(void)
 
 /* The Enter a Ctrl+Enter types arrives just after it, if at all (a key
  * that only changed the key bitmap types nothing), so it is only looked
- * for for a moment. */
-static uint8_t enters_to_swallow, swallow_left, swallow_vsync;
-#define SWALLOW_FRAMES 30 /* real frames, counted by vsync */
+ * for for a moment: SWALLOW_FRAMES passes of the main loop, a frame each.
+ * Time the loop spent busy doesn't count (the update after a Ctrl+Enter
+ * takes most of a second, and on real hardware the Enter can come after
+ * it), so the window can't run out before the Enter has been looked for. */
+static uint8_t enters_to_swallow, swallow_left;
+#define SWALLOW_FRAMES 30
 
 static void handle_keys(void)
 {
@@ -425,16 +429,11 @@ static void handle_keys(void)
     bool ctrl = KEYBOARD_PRESSED(kb.keys, HID_KEY_CONTROL_LEFT) || KEYBOARD_PRESSED(kb.keys, HID_KEY_CONTROL_RIGHT);
     uint8_t events = clock_take_keys();
     uint8_t ce = clock_take_ctrl_enters();
-    uint8_t passed = (uint8_t)(RIA.vsync - swallow_vsync);
-    swallow_vsync = RIA.vsync;
     if (ce) {
         enters_to_swallow += ce;
         swallow_left = SWALLOW_FRAMES;
-    } else if (passed >= swallow_left) {
-        swallow_left = 0;
+    } else if (swallow_left && !--swallow_left) {
         enters_to_swallow = 0;
-    } else {
-        swallow_left -= passed;
     }
 
     if (files_active()) {

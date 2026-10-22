@@ -97,6 +97,8 @@ typedef struct
     uint8_t pool[13312];   /* POOL_XRAM_SIZE: pattern nodes, kids and values, two banks (pattern.c) */
     uint8_t cache[5632];   /* CACHE_XRAM_SIZE: notes worked out already (player.c) */
     uint8_t events[2304];  /* the clock's two event buffers (clock.c) */
+    uint8_t clip[4096];    /* CLIP_CAP: copied text (editor.c) */
+    uint8_t undo[4096];    /* UNDO_CAP: the undo history (editor.c) */
 } xram_layout_t;
 
 #define CACHE_XRAM_SIZE 5632
@@ -111,6 +113,10 @@ typedef struct
 #define XRAM_POOL offsetof(xram_layout_t, pool)
 #define XRAM_EVENTS offsetof(xram_layout_t, events)
 #define XRAM_CACHE offsetof(xram_layout_t, cache)
+#define XRAM_CLIP offsetof(xram_layout_t, clip)
+#define XRAM_UNDO offsetof(xram_layout_t, undo)
+#define CLIP_CAP 4096
+#define UNDO_CAP 4096
 
 _Static_assert((XRAM_OPL & 0xFF) == 0, "The OPL2 registers must start on a page boundary.");
 

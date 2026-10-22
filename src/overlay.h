@@ -16,8 +16,11 @@
 
 #ifdef __mos__
 #define OVERLAY_ENTRY __attribute__((noinline))
+/* A function in a file that stays in RAM, used only by the parser. */
+#define PARSE_ONLY __attribute__((section(".ovl_parse")))
 #else
 #define OVERLAY_ENTRY
+#define PARSE_ONLY
 #endif
 
 enum { OVERLAY_NONE, OVERLAY_PARSE, OVERLAY_QUERY };

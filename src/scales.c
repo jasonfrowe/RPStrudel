@@ -1,11 +1,12 @@
-/* Scales for scale(): always in RAM, as the parser (finding names) and the
- * queries (turning degrees into notes) are separate overlays. */
+/* Scales for scale(): the notes stay in RAM for the queries; the names are
+ * only for the parser, so they are in its overlay. */
 
 #include "pattern.h"
+#include "overlay.h"
 
 /* Scales: names (words joined by ':') and the semitones in them, one bit
  * each. */
-const char pat_scale_names[] = "major|ionian|minor|aeolian|dorian|phrygian|lydian|mixolydian|locrian|"
+PARSE_ONLY const char pat_scale_names[] = "major|ionian|minor|aeolian|dorian|phrygian|lydian|mixolydian|locrian|"
                                   "harmonic:minor|melodic:minor|pentatonic|major:pentatonic|minor:pentatonic|"
                                   "blues|major:blues|chromatic|whole:tone";
 static const uint16_t scale_masks[] = {0xAB5, 0xAB5, 0x5AD, 0x5AD, 0x6AD, 0x5AB, 0xAD5, 0x6B5, 0x56B,

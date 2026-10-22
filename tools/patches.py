@@ -174,11 +174,20 @@ DRUM_NAMES = [
     ("rim", 0x73, 76), ("cb", 0x71, 68), ("perc", 0x76, 60),
 ]
 
+# Strudel's basic synths: good General MIDI patches near each wave (the
+# made-up sine and triangle patches clicked). Their note byte is SYNTH:
+# for these, n is the note, as in Strudel.
+SYNTH_NOTE = 0xFF
+SYNTH_NAMES = [
+    ("sine", 0x4F),      # Ocarina
+    ("triangle", 0x49),  # Flute: Strudel's default sound
+    ("square", 0x50),    # Square Lead
+    ("sawtooth", 0x51),  # Sawtooth Lead
+]
+
 # Other sound names and the patch each plays. The General MIDI names are
-# Strudel's (@strudel/soundfonts gm.mjs). The OPL2 has no square or saw
-# wave, so those use the General MIDI lead patches.
+# Strudel's (@strudel/soundfonts gm.mjs).
 NAMES = [
-    ("sine", 0x83), ("triangle", 0x84), ("square", 0x50), ("sawtooth", 0x51),
     ("gm_piano", 0x00),
     ("gm_epiano1", 0x04),
     ("gm_epiano2", 0x05),
@@ -313,7 +322,8 @@ def main(out):
         assert len(p) == 11
         data += bytes(p)
     # each name: length, characters, patch, fixed note (0 for none)
-    for name, pid, note in DRUM_NAMES + [(n, p, 0) for n, p in NAMES]:
+    names = DRUM_NAMES + [(n, p, SYNTH_NOTE) for n, p in SYNTH_NAMES] + [(n, p, 0) for n, p in NAMES]
+    for name, pid, note in names:
         data += bytes([len(name)]) + name.encode() + bytes([pid, note])
     data += b"\0"
     with open(out, "wb") as f:

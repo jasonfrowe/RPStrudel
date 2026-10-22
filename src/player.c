@@ -230,8 +230,8 @@ static bool make_note(const pat_hap_t *h, int32_t cycle, int32_t base, note_t *n
 {
     pat_atom_t at;
     uint8_t s = h->ctl[CTL_S];
-    uint8_t patch = PATCH_TRIANGLE; /* Strudel's default sound */
-    uint8_t drum = 0;
+    uint8_t patch = PATCH_DEFAULT; /* Strudel's default sound, triangle */
+    uint8_t drum = SOUND_SYNTH;
     if (s != PAT_NONE) {
         pat_atom_get(s, &at);
         patch = at.patch;
@@ -241,6 +241,9 @@ static bool make_note(const pat_hap_t *h, int32_t cycle, int32_t base, note_t *n
             return false;
         }
     }
+    bool synth = drum == SOUND_SYNTH;
+    if (synth)
+        drum = 0;
 
     int16_t note;
     bool given = h->ctl[CTL_NOTE] != PAT_NONE || h->note != NO_VAL;
@@ -248,10 +251,10 @@ static bool make_note(const pat_hap_t *h, int32_t cycle, int32_t base, note_t *n
         note = drum;
     } else if (given) {
         note = h->note;
-    } else if (h->n != NO_VAL && patch >= PATCH_GM_COUNT) {
+    } else if (h->n != NO_VAL && synth) {
         note = h->n; /* synths: n is the note */
     } else {
-        note = patch >= PATCH_GM_COUNT ? 36 : 48;
+        note = synth ? 36 : 48;
     }
     if (note < 0 || note > 127) {
         pat_atom_get(h->ctl[CTL_NOTE] != PAT_NONE ? h->ctl[CTL_NOTE] : h->atom, &at);
@@ -273,14 +276,37 @@ static bool make_note(const pat_hap_t *h, int32_t cycle, int32_t base, note_t *n
     return true;
 }
 
-/* A free voice that already holds the patch, else the one free longest,
- * else the one that frees soonest. */
-static uint8_t pick_voice(uint32_t t, uint8_t patch)
+/* The voice for a note at t.
+ *
+ * Drums retrigger their own voice (as RPTracker plays them). Other notes
+ * avoid the voice whose note ends just as this one starts: keying it off
+ * and on again at once cuts the old note and restarts the wave, which
+ * clicks. So a note takes, in order: a voice of its patch that went quiet
+ * earlier (two of them alternate, each fading out between its notes); a
+ * voice never used; a free voice that was not a drum (drums may still
+ * ring); then the voice just freed, any free voice, or the one that frees
+ * soonest. The earliest freed wins each time. */
+static uint8_t pick_voice(uint32_t t, uint8_t patch, bool drum)
 {
     uint8_t best = 0xFF;
-    for (uint8_t v = 0; v < OPL_VOICES; v++)
-        if (voices[v].free_at <= t && player_voice_patch[v] == patch)
-            return v;
+    for (uint8_t pass = drum ? 3 : 0; pass < 5 && best == 0xFF; pass++) {
+        for (uint8_t v = 0; v < OPL_VOICES; v++) {
+            uint32_t f = voices[v].free_at;
+            uint8_t p = player_voice_patch[v];
+            bool ok;
+            switch (pass) {
+            case 0: ok = p == patch && f < t; break;
+            case 1: ok = p == PATCH_UNKNOWN; break;
+            case 2: ok = f < t && !player_voice_drum[v]; break;
+            case 3: ok = p == patch && f <= t; break;
+            default: ok = f <= t; break;
+            }
+            if (ok && (best == 0xFF || f < voices[best].free_at))
+                best = v;
+        }
+    }
+    if (best != 0xFF)
+        return best;
     for (uint8_t v = 0; v < OPL_VOICES; v++)
         if (best == 0xFF || voices[v].free_at < voices[best].free_at)
             best = v;
@@ -422,7 +448,7 @@ void player_fill(uint16_t cycle)
 
     for (uint8_t i = 0; i < count; i++) {
         note_t *n = &notes[i];
-        uint8_t v = pick_voice(n->t, n->patch);
+        uint8_t v = pick_voice(n->t, n->patch, n->drum);
         voice_t *vo = &voices[v];
         uint8_t serial = ++vo->serial;
         vo->free_at = n->end;

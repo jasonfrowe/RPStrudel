@@ -6,6 +6,8 @@
 #include "text.h"
 #include "xram.h"
 
+char edit_scratch[EDIT_SCRATCH];
+
 static uint16_t len; /* characters held */
 static uint16_t gap; /* where the gap starts: the cursor */
 
@@ -130,10 +132,10 @@ bool edit_save(int fd)
 
 bool edit_load(int fd)
 {
-    static char chunk[128];
+    char *chunk = edit_scratch;
     edit_clear();
     int got;
-    while ((got = read(fd, chunk, sizeof chunk)) > 0) {
+    while ((got = read(fd, chunk, EDIT_SCRATCH)) > 0) {
         for (int i = 0; i < got; i++) {
             char c = chunk[i];
             if (c == '\r')

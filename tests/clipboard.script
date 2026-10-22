@@ -1,0 +1,124 @@
+# Selection, clipboard and undo: Shift+arrows, Ctrl+A/C/X/V/Z, Ctrl+End.
+# Checks the text through Ctrl+D dumps. Run with:
+#   ./tools/rp6502-emu build/llvm-mos/release/RPStrudel.rp6502 --mute --script tests/clipboard.script
+run 60
+# 1. copy a line and paste it after itself
+key end+ctrl
+key enter
+type "$: s(\"bd sd\")"
+run 10
+key home+shift
+key c+ctrl
+key end
+type " "
+key v+ctrl
+run 10
+press 0xE0
+press 0x07
+run 2
+release 0x07
+release 0xE0
+run 120
+expect "$: s(\"bd sd\") $: s(\"bd sd\")"
+# 2. undo the paste and the space
+key z+ctrl
+key z+ctrl
+run 10
+press 0xE0
+press 0x07
+run 2
+release 0x07
+release 0xE0
+run 120
+expect "$: s(\"bd sd\")"
+expect-not "sd\") $:"
+# 3. typing replaces a selection, and one undo puts it back
+key end
+key left
+key left
+key left+shift
+key left+shift
+type "hh"
+run 10
+press 0xE0
+press 0x07
+run 2
+release 0x07
+release 0xE0
+run 120
+expect "$: s(\"bd hh\")"
+key z+ctrl
+run 10
+press 0xE0
+press 0x07
+run 2
+release 0x07
+release 0xE0
+run 120
+expect "$: s(\"bd sd\")"
+# 4. cut the line, then paste it back
+key home
+key end+shift
+key x+ctrl
+run 10
+press 0xE0
+press 0x07
+run 2
+release 0x07
+release 0xE0
+run 120
+expect-not "bd sd"
+key v+ctrl
+run 10
+press 0xE0
+press 0x07
+run 2
+release 0x07
+release 0xE0
+run 120
+expect "$: s(\"bd sd\")"
+# 5. backspaces undo in one go
+key end
+type " // abc"
+key backspace
+key backspace
+key backspace
+run 10
+press 0xE0
+press 0x07
+run 2
+release 0x07
+release 0xE0
+run 120
+expect "$: s(\"bd sd\") //"
+expect-not "abc"
+key z+ctrl
+run 10
+press 0xE0
+press 0x07
+run 2
+release 0x07
+release 0xE0
+run 120
+expect "$: s(\"bd sd\") // abc"
+# 6. select all and delete, then undo
+key a+ctrl
+key delete
+run 10
+press 0xE0
+press 0x07
+run 2
+release 0x07
+release 0xE0
+run 120
+expect-not "RPStrudel:"
+key z+ctrl
+run 10
+press 0xE0
+press 0x07
+run 2
+release 0x07
+release 0xE0
+run 120
+expect "RPStrudel:"
+expect "$: s(\"bd sd\") // abc"

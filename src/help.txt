@@ -5,4 +5,7 @@ Ctrl+Enter     play / update (the change starts next cycle)
 Ctrl+. or Esc  stop
 Ctrl+S save      Ctrl+O open
 Ctrl+K           delete the line
+Shift+arrows     select (Ctrl+A all)
+Ctrl+C, X, V     copy, cut, paste
+Ctrl+Z           undo
 Arrows, Home, End, PgUp, PgDn, Backspace, Delete, Tab: edit

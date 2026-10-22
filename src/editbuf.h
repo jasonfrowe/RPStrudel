@@ -11,6 +11,11 @@
 
 #define EDIT_CAP 8192
 
+/* A buffer for passing text through RAM (loading, drawing a line, copying),
+ * shared since only one of those runs at a time. */
+#define EDIT_SCRATCH 160
+extern char edit_scratch[EDIT_SCRATCH];
+
 void edit_clear(void);
 uint16_t edit_length(void);
 uint16_t edit_cursor(void);

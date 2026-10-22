@@ -29,8 +29,8 @@ const char *patch_name(uint8_t id)
         }
         buf[n] = 0;
         uint8_t got = RIA.rw0;
-        (void)RIA.rw0; /* its note */
-        if (got == id)
+        uint8_t note = RIA.rw0;
+        if (got == id && note != SOUND_SYNTH) /* (sine, triangle... are aliases) */
             return buf[0] == 'g' && buf[1] == 'm' && buf[2] == '_' ? buf + 3 : buf;
     }
     /* General MIDI 1-3 have no name of their own: Strudel's gm_piano */

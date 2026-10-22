@@ -6,6 +6,7 @@
 #include <string.h>
 
 #include "pattern_pool.h"
+#include "overlay.h"
 #include <stddef.h>
 
 _Static_assert(2 * PAT_BANK_SIZE <= POOL_SIZE, "two banks must fit the pool");
@@ -69,17 +70,17 @@ uint8_t pat_node_type(uint8_t i)
     return pool_peek(NODE_AT(i) + offsetof(pat_node_t, type));
 }
 
-void pat_set_r1(uint8_t node, const rat_t *r)
+PARSE_ONLY void pat_set_r1(uint8_t node, const rat_t *r)
 {
     pool_write(NODE_AT(node) + offsetof(pat_node_t, r1), r, sizeof *r);
 }
 
-void pat_set_r2(uint8_t node, const rat_t *r)
+PARSE_ONLY void pat_set_r2(uint8_t node, const rat_t *r)
 {
     pool_write(NODE_AT(node) + offsetof(pat_node_t, r2), r, sizeof *r);
 }
 
-void pat_set_atom(uint8_t node, uint8_t atom)
+PARSE_ONLY void pat_set_atom(uint8_t node, uint8_t atom)
 {
     uint16_t k = atom;
     pool_write(NODE_AT(node) + offsetof(pat_node_t, kids), &k, sizeof k);
@@ -110,7 +111,7 @@ uint16_t pat_period_memo(uint8_t node)
     return p == 0xFFFF ? 0 : p;
 }
 
-bool pat_const_num(uint8_t node, rat_t *out)
+PARSE_ONLY bool pat_const_num(uint8_t node, rat_t *out)
 {
     if (node == PAT_NONE || pat_node_type(node) != N_ATOM)
         return false;
@@ -130,7 +131,7 @@ void pat_reset(void)
     rat_overflow = false;
 }
 
-uint8_t pat_new_node(uint8_t type)
+PARSE_ONLY uint8_t pat_new_node(uint8_t type)
 {
     if (pat_node_count >= PAT_NODES) {
         if (!pat_error)
@@ -149,7 +150,7 @@ uint8_t pat_new_node(uint8_t type)
     return i;
 }
 
-uint8_t pat_new_atom(void)
+PARSE_ONLY uint8_t pat_new_atom(void)
 {
     if (pat_atom_count >= PAT_ATOMS) {
         if (!pat_error)
@@ -163,7 +164,7 @@ uint8_t pat_new_atom(void)
     return pat_atom_count++;
 }
 
-void pat_add_kid(uint8_t node, uint8_t kid)
+PARSE_ONLY void pat_add_kid(uint8_t node, uint8_t kid)
 {
     if (pat_kid_count >= PAT_KIDS) {
         if (!pat_error)

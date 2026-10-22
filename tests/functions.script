@@ -21,6 +21,12 @@ run 40
 key enter
 type "$: note(\"c4 e4\").trans(\"<0 3M>\").s(\"sine\")"
 run 40
+key enter
+type "$: note(\"c4 e4\").s(\"<#50 #2E>\")"
+run 40
+key enter
+type "$: s(\"#FD #FE #FF\")"
+run 40
 press 0xE0
 press 0x28
 run 3
