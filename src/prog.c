@@ -280,8 +280,10 @@ static bool mark_scales(uint8_t from)
         pat_atom_t at;
         pat_atom_get(i, &at);
         uint16_t p = at.pos + at.len;
+        if (at.pos && text_at(at.pos - 1) == ':')
+            continue; /* a word of a name, as minor in C:minor */
         if (at.ival == NO_VAL || text_at(p) != ':')
-            continue;
+            return fail("scale names are as \"g:minor\" (with a :)", at.pos);
         char buf[24];
         uint8_t n = 0;
         for (p++; n < sizeof buf; p++) {
