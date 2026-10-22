@@ -166,9 +166,10 @@ DRUMS = [
 # Drum names: the patch and the fixed note each plays. Strudel's usual
 # drum machine names, made from the good patches (and the two above).
 DRUM_NAMES = [
-    ("bd", 0x80, 60), ("sd", 0x81, 60), ("hh", 0x82, 60),
-    ("oh", 0x85, 60), ("cr", 0x86, 55), ("rd", 0x82, 72),
-    ("sh", 0x82, 84), ("tb", 0x82, 79), ("cp", 0x81, 67),
+    # the kit plays at C3 (MIDI 48), as in RPTracker
+    ("bd", 0x80, 48), ("sd", 0x81, 48), ("hh", 0x82, 48),
+    ("oh", 0x85, 48), ("cr", 0x86, 43), ("rd", 0x82, 60),
+    ("sh", 0x82, 72), ("tb", 0x82, 67), ("cp", 0x81, 55),
     ("lt", 0x75, 45), ("mt", 0x75, 50), ("ht", 0x75, 55),
     ("rim", 0x73, 76), ("cb", 0x71, 68), ("perc", 0x76, 60),
 ]
