@@ -4,3 +4,5 @@ __pycache__
 /CMakeUserPresets.json
 /tools/rp6502-emu
 /tools/rp6502-emu.*
+/compile_commands.json
+/.cache
