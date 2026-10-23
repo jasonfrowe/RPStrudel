@@ -14,3 +14,6 @@ __pycache__
 
 # songs saved from RPStrudel stay local
 *.str
+
+# mac crap
+.DS_Store
