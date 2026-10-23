@@ -11,3 +11,6 @@ __pycache__
 /tests/host/bench
 /tests/host/*.dSYM
 /tests/host/*_actual.txt
+
+# songs saved from RPStrudel stay local
+*.str
